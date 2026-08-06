@@ -31,6 +31,7 @@ public class AuthController {
     public ResponseEntity<?> login(@RequestBody AuthRequestDTO authDTO) {
         try {
             AuthResponseDTO response = authService.login(authDTO);
+            System.out.println(response);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());

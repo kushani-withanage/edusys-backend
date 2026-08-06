@@ -1,6 +1,9 @@
 package com.edusys.controller;
 
 import com.edusys.model.dto.ExamDTO;
+import com.edusys.model.dto.QuestionBankDTO;
+import com.edusys.model.dto.ExamAttemptDTO;
+import com.edusys.model.dto.ExamSubmissionDTO;
 import com.edusys.service.ExamService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -51,6 +54,21 @@ public class ExamController {
         boolean deleted = examService.delete(id);
         if (deleted) {
             return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    @GetMapping("/{id}/questions")
+    public ResponseEntity<List<QuestionBankDTO>> getQuestions(@PathVariable String id) {
+        List<QuestionBankDTO> questions = examService.getQuestionsForExam(id);
+        return ResponseEntity.ok(questions);
+    }
+
+    @PostMapping("/{id}/submit")
+    public ResponseEntity<ExamAttemptDTO> submitAttempt(@PathVariable String id, @RequestBody ExamSubmissionDTO submission) {
+        ExamAttemptDTO attempt = examService.submitExam(id, submission);
+        if (attempt != null) {
+            return ResponseEntity.ok(attempt);
         }
         return ResponseEntity.notFound().build();
     }

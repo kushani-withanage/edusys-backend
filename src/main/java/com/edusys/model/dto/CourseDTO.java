@@ -15,4 +15,13 @@ public class CourseDTO {
     private Integer credits;
     private Integer durationWeeks;
     private String description;
+    private String batchCode;
+    private String level;
+    private Boolean isCompulsory;
+    private String certReqs;
+    private String qualifyIntro;
+    private String qualifyReqs;
+    private String sections;
+    private String status;
+    private String instructor;
 }

@@ -7,17 +7,14 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ExamDTO {
-    private String examId;
-    private String title;
+public class ExamSubmissionDTO {
+    private String studentId;
     private LocalDateTime startTime;
-    private Integer durationMinutes;
-    private Integer totalMarks;
-    private List<String> questionIds;
-    private String createdBy;
+    private Map<String, List<String>> answers;
 }

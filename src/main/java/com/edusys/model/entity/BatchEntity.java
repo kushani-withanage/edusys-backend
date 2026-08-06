@@ -31,4 +31,13 @@ public class BatchEntity {
 
     @Column(name = "end_date")
     private LocalDate endDate;
+
+    @Column(name = "status")
+    private String status;
+
+    @Column(name = "teacher")
+    private String teacher;
+
+    @Column(name = "course_name")
+    private String courseName;
 }

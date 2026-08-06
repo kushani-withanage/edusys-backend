@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface FeeRecordRepository extends CrudRepository<FeeRecordEntity, String> {
+    long countByStatus(String status);
 }

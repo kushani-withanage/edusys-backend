@@ -32,4 +32,25 @@ public class CourseEntity {
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
+
+    @Column(name = "batch_code")
+    private String batchCode;
+
+    @Column(name = "course_level")
+    private String level;
+
+    @Column(name = "is_compulsory")
+    private Boolean isCompulsory;
+
+    @Column(name = "cert_reqs", columnDefinition = "TEXT")
+    private String certReqs;
+
+    @Column(name = "qualify_intro", columnDefinition = "TEXT")
+    private String qualifyIntro;
+
+    @Column(name = "qualify_reqs", columnDefinition = "TEXT")
+    private String qualifyReqs;
+
+    @Column(name = "sections", columnDefinition = "LONGTEXT")
+    private String sections;
 }

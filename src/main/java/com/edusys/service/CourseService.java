@@ -10,4 +10,6 @@ public interface CourseService {
     List<CourseDTO> getAll();
     CourseDTO update(String id, CourseDTO courseDTO);
     boolean delete(String id);
+    List<CourseDTO> getCoursesForUser(String userId);
+    boolean updateCourseStatusForUser(String userId, String courseId, String status);
 }

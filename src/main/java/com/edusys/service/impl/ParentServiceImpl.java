@@ -1,9 +1,11 @@
 package com.edusys.service.impl;
 
 import com.edusys.entity.ParentEntity;
+import com.edusys.entity.UserEntity;
 import com.edusys.enums.EntityPrefix;
 import com.edusys.model.dto.ParentDTO;
 import com.edusys.repository.ParentRepository;
+import com.edusys.repository.UserRepository;
 import com.edusys.service.ParentService;
 import com.edusys.util.IdGenerator;
 import org.modelmapper.ModelMapper;
@@ -20,10 +22,26 @@ public class ParentServiceImpl implements ParentService {
     private ParentRepository parentRepository;
 
     @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
     private ModelMapper mapper;
 
     @Autowired
     private IdGenerator idGenerator;
+
+    private ParentDTO convertToDTO(ParentEntity entity) {
+        if (entity == null) return null;
+        ParentDTO dto = mapper.map(entity, ParentDTO.class);
+        userRepository.findById(entity.getParentId()).ifPresent(user -> {
+            dto.setFullName(user.getFullName());
+            dto.setEmail(user.getEmail());
+            dto.setPhone(user.getPhone());
+            dto.setStatus(user.getStatus());
+            dto.setCreatedAt(user.getCreatedAt());
+        });
+        return dto;
+    }
 
     @Override
     public ParentDTO create(ParentDTO parentDTO) {
@@ -32,20 +50,20 @@ public class ParentServiceImpl implements ParentService {
         }
         ParentEntity entity = mapper.map(parentDTO, ParentEntity.class);
         ParentEntity saved = parentRepository.save(entity);
-        return mapper.map(saved, ParentDTO.class);
+        return convertToDTO(saved);
     }
 
     @Override
     public ParentDTO getById(String id) {
         return parentRepository.findById(id)
-                .map(entity -> mapper.map(entity, ParentDTO.class))
+                .map(this::convertToDTO)
                 .orElse(null);
     }
 
     @Override
     public List<ParentDTO> getAll() {
         List<ParentDTO> list = new ArrayList<>();
-        parentRepository.findAll().forEach(entity -> list.add(mapper.map(entity, ParentDTO.class)));
+        parentRepository.findAll().forEach(entity -> list.add(convertToDTO(entity)));
         return list;
     }
 
@@ -57,13 +75,23 @@ public class ParentServiceImpl implements ParentService {
         parentDTO.setParentId(id);
         ParentEntity entity = mapper.map(parentDTO, ParentEntity.class);
         ParentEntity updated = parentRepository.save(entity);
-        return mapper.map(updated, ParentDTO.class);
+        
+        userRepository.findById(id).ifPresent(user -> {
+            if (parentDTO.getFullName() != null) user.setFullName(parentDTO.getFullName());
+            if (parentDTO.getEmail() != null) user.setEmail(parentDTO.getEmail());
+            if (parentDTO.getPhone() != null) user.setPhone(parentDTO.getPhone());
+            if (parentDTO.getStatus() != null) user.setStatus(parentDTO.getStatus());
+            userRepository.save(user);
+        });
+        
+        return convertToDTO(updated);
     }
 
     @Override
     public boolean delete(String id) {
         if (parentRepository.existsById(id)) {
             parentRepository.deleteById(id);
+            userRepository.deleteById(id);
             return true;
         }
         return false;

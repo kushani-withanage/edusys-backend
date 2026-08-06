@@ -6,7 +6,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.web.multipart.MultipartFile;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.List;
 
 @RestController
@@ -21,6 +23,31 @@ public class AssignmentController {
     public ResponseEntity<AssignmentDTO> create(@RequestBody AssignmentDTO dto) {
         AssignmentDTO created = assignmentService.create(dto);
         return new ResponseEntity<>(created, HttpStatus.CREATED);
+    }
+
+    @PostMapping(value = "/upload-file", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<java.util.Map<String, String>> uploadFile(@RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            java.io.File uploadDir = new java.io.File("uploads");
+            if (!uploadDir.exists()) {
+                uploadDir.mkdirs();
+            }
+            String originalFileName = file.getOriginalFilename();
+            String savedFileName = System.currentTimeMillis() + "_" + originalFileName.replaceAll("[^a-zA-Z0-9\\.\\-_]", "_");
+            java.io.File dest = new java.io.File(uploadDir, savedFileName);
+            file.transferTo(dest.getAbsoluteFile());
+
+            java.util.Map<String, String> response = new java.util.HashMap<>();
+            response.put("fileName", savedFileName);
+            response.put("fileUrl", "/uploads/" + savedFileName);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @GetMapping("/{id}")

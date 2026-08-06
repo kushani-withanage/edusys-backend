@@ -34,4 +34,7 @@ public class StudentEntity {
 
     @Column(name = "dob")
     private LocalDate dob;
+
+    @Column(name = "gender")
+    private String gender;
 }

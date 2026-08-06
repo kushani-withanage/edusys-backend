@@ -12,6 +12,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.http.HttpMethod;
 
 @Configuration
 @EnableWebSecurity
@@ -19,6 +20,9 @@ public class SecurityConfig {
 
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @Autowired
+    private org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -33,11 +37,19 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+            .cors(cors -> cors.configurationSource(corsConfigurationSource))
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/v1/auth/**", "/test", "/error").permitAll()
-                .requestMatchers("/api/v1/admins/**", "/api/v1/users/**", "/api/v1/fee-records/**", "/api/v1/receipts/**", "/api/v1/inquiries/**").hasRole("ADMIN")
+                .requestMatchers("/api/v1/auth/**", "/test/**", "/error", "/uploads/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/course-access-grants/**").hasAnyRole("ADMIN", "STUDENT")
+                .requestMatchers("/api/v1/course-access-grants/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/v1/fee-records/**", "/api/v1/receipts/**").hasAnyRole("ADMIN", "STUDENT", "PARENT")
+                .requestMatchers(HttpMethod.GET, "/api/v1/career-tasks/**").hasAnyRole("ADMIN", "TEACHER", "REVIEWER", "STUDENT")
+                .requestMatchers(HttpMethod.GET, "/api/v1/courses/**", "/api/v1/batches/**", "/api/v1/semesters/**", "/api/v1/assignments/**", "/api/v1/exams/**", "/api/v1/grades/**").hasAnyRole("ADMIN", "TEACHER", "STUDENT", "PARENT")
+                .requestMatchers(HttpMethod.GET, "/api/v1/career-levels/**").hasAnyRole("ADMIN", "REVIEWER", "STUDENT")
+                .requestMatchers("/api/v1/admins/**", "/api/v1/users/**", "/api/v1/fee-records/**", "/api/v1/receipts/**", "/api/v1/inquiries/**", "/api/v1/dashboard/**").hasRole("ADMIN")
+                .requestMatchers("/api/v1/exams/*/questions", "/api/v1/exams/*/submit").hasAnyRole("ADMIN", "TEACHER", "STUDENT")
                 .requestMatchers("/api/v1/teachers/**", "/api/v1/courses/**", "/api/v1/batches/**", "/api/v1/semesters/**", "/api/v1/question-bank/**", "/api/v1/exams/**", "/api/v1/assignments/**", "/api/v1/grades/**").hasAnyRole("ADMIN", "TEACHER")
                 .requestMatchers("/api/v1/reviewers/**", "/api/v1/career-tasks/**", "/api/v1/evaluations/**", "/api/v1/career-levels/**").hasAnyRole("ADMIN", "REVIEWER")
                 .anyRequest().authenticated()

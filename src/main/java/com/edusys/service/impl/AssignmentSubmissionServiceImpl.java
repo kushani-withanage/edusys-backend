@@ -30,6 +30,9 @@ public class AssignmentSubmissionServiceImpl implements AssignmentSubmissionServ
         if (dto.getSubmissionId() == null || dto.getSubmissionId().trim().isEmpty()) {
             dto.setSubmissionId(idGenerator.generateId(EntityPrefix.ASSIGNMENT_SUBMISSION, assignmentSubmissionRepository.count()));
         }
+        if (dto.getSubmitDate() == null) {
+            dto.setSubmitDate(java.time.LocalDateTime.now());
+        }
         AssignmentSubmissionEntity entity = mapper.map(dto, AssignmentSubmissionEntity.class);
         AssignmentSubmissionEntity saved = assignmentSubmissionRepository.save(entity);
         return mapper.map(saved, AssignmentSubmissionDTO.class);
@@ -67,5 +70,20 @@ public class AssignmentSubmissionServiceImpl implements AssignmentSubmissionServ
             return true;
         }
         return false;
+    }
+
+    @Override
+    public AssignmentSubmissionDTO getByAssignmentAndStudent(String assignmentId, String studentId) {
+        return assignmentSubmissionRepository.findByAssignmentIdAndStudentId(assignmentId, studentId)
+                .map(entity -> mapper.map(entity, AssignmentSubmissionDTO.class))
+                .orElse(null);
+    }
+
+    @Override
+    public List<AssignmentSubmissionDTO> getByAssignment(String assignmentId) {
+        List<AssignmentSubmissionDTO> list = new ArrayList<>();
+        assignmentSubmissionRepository.findByAssignmentId(assignmentId)
+                .forEach(entity -> list.add(mapper.map(entity, AssignmentSubmissionDTO.class)));
+        return list;
     }
 }

@@ -34,4 +34,7 @@ public class EnrollmentEntity {
 
     @Column(name = "enroll_date")
     private LocalDate enrollDate;
+
+    @Column(name = "status", length = 50)
+    private String status;
 }

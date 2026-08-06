@@ -11,13 +11,12 @@ import java.time.LocalDate;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class BatchDTO {
-    private String batchId;
-    private String batchName;
-    private LocalDate startDate;
-    private LocalDate endDate;
-    private String status;
-    private String teacher;
+public class CourseAccessGrantDTO {
+    private String id;
+    private String courseId;
     private String courseName;
-    private Integer studentCount;
+    private String batchCode;
+    private String userIdentifier;
+    private LocalDate grantedAt;
+    private String status;
 }

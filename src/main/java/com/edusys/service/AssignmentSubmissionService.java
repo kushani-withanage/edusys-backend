@@ -10,4 +10,6 @@ public interface AssignmentSubmissionService {
     List<AssignmentSubmissionDTO> getAll();
     AssignmentSubmissionDTO update(String id, AssignmentSubmissionDTO dto);
     boolean delete(String id);
+    AssignmentSubmissionDTO getByAssignmentAndStudent(String assignmentId, String studentId);
+    List<AssignmentSubmissionDTO> getByAssignment(String assignmentId);
 }
