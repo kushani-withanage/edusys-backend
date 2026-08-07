@@ -13,11 +13,22 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ExamDTO {
-    private String examId;
+    private String id;
     private String title;
-    private LocalDateTime startTime;
-    private Integer durationMinutes;
-    private Integer totalMarks;
-    private List<String> questionIds;
+    private String description;
+    private String courseId; // module_id
     private String createdBy;
+    private LocalDateTime startTime;
+    private LocalDateTime endTime;
+    private Integer durationMinutes;
+    private Boolean shuffleQuestions;
+    private Boolean shuffleOptions;
+    private Integer attemptsAllowed;
+    private String status; // DRAFT, PUBLISHED, CLOSED
+    private LocalDateTime createdAt;
+    
+    // Auxiliary fields for payload
+    private List<String> questionIds;
+    private List<ExamAudienceDTO> audiences;
+    private Integer totalMarks;
 }

@@ -18,29 +18,49 @@ import java.util.List;
 public class ExamEntity {
 
     @Id
-    @Column(name = "exam_id", length = 36)
-    private String examId;
+    @Column(name = "id", length = 36)
+    private String id;
 
     @Column(name = "title", nullable = false)
     private String title;
 
-    @Column(name = "start_time")
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
+    @Column(name = "course_id", length = 36)
+    private String courseId; // module_id
+
+    @Column(name = "created_by", nullable = false, length = 36)
+    private String createdBy;
+
+    @Column(name = "start_time", nullable = false)
     private LocalDateTime startTime;
 
-    @Column(name = "duration_minutes")
+    @Column(name = "end_time", nullable = false)
+    private LocalDateTime endTime;
+
+    @Column(name = "duration_minutes", nullable = false)
     private Integer durationMinutes;
 
-    @Column(name = "total_marks")
-    private Integer totalMarks;
+    @Column(name = "shuffle_questions", nullable = false)
+    private Boolean shuffleQuestions;
 
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-        name = "exam_question",
-        joinColumns = @JoinColumn(name = "exam_id"),
-        inverseJoinColumns = @JoinColumn(name = "question_id")
-    )
-    private List<QuestionBankEntity> questions;
+    @Column(name = "shuffle_options", nullable = false)
+    private Boolean shuffleOptions;
 
-    @Column(name = "created_by", length = 36)
-    private String createdBy;
+    @Column(name = "attempts_allowed", nullable = false)
+    private Integer attemptsAllowed;
+
+    @Column(name = "status", nullable = false, length = 20)
+    private String status; // DRAFT, PUBLISHED, CLOSED
+
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
+
+    @OneToMany(mappedBy = "exam", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @OrderBy("orderIndex ASC")
+    private List<ExamQuestionEntity> examQuestions;
+
+    @OneToMany(mappedBy = "exam", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    private List<ExamAudienceEntity> audiences;
 }

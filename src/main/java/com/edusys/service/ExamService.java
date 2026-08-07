@@ -1,18 +1,18 @@
 package com.edusys.service;
 
 import com.edusys.model.dto.ExamDTO;
-import com.edusys.model.dto.QuestionBankDTO;
-import com.edusys.model.dto.ExamAttemptDTO;
-import com.edusys.model.dto.ExamSubmissionDTO;
-
+import com.edusys.model.dto.QuestionDTO;
 import java.util.List;
+import java.util.Map;
 
 public interface ExamService {
-    ExamDTO create(ExamDTO examDTO);
+    ExamDTO create(ExamDTO dto);
     ExamDTO getById(String id);
     List<ExamDTO> getAll();
-    ExamDTO update(String id, ExamDTO examDTO);
+    ExamDTO update(String id, ExamDTO dto);
     boolean delete(String id);
-    List<QuestionBankDTO> getQuestionsForExam(String examId);
-    ExamAttemptDTO submitExam(String examId, ExamSubmissionDTO submission);
+    ExamDTO publish(String id);
+    ExamDTO close(String id);
+    List<QuestionDTO> getQuestionsForExam(String examId, boolean stripCorrectAnswers);
+    Map<String, Object> getExamAnalytics(String examId);
 }

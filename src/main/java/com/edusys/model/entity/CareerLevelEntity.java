@@ -10,7 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "career_levels")
+@Table(name = "career_level")
 @Data
 @Builder
 @NoArgsConstructor
@@ -18,18 +18,21 @@ import lombok.NoArgsConstructor;
 public class CareerLevelEntity {
 
     @Id
-    @Column(name = "level_id", length = 36)
-    private String levelId;
+    @Column(name = "id", length = 36)
+    private String id;
 
-    @Column(name = "level_name", nullable = false, unique = true)
-    private String levelName;
+    @Column(name = "level_number", nullable = false, unique = true)
+    private Integer levelNumber;
+
+    @Column(name = "title", nullable = false)
+    private String title;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "min_points")
-    private Integer minPoints;
+    @Column(name = "points_required", nullable = false)
+    private Integer pointsRequired;
 
-    @Column(name = "max_points")
-    private Integer maxPoints;
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive;
 }

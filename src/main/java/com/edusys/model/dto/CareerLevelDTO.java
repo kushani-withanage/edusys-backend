@@ -10,9 +10,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CareerLevelDTO {
-    private String levelId;
-    private String levelName;
+    private String id;
+    private Integer levelNumber;
+    private String title;
     private String description;
-    private Integer minPoints;
-    private Integer maxPoints;
+    private Integer pointsRequired;
+    private Boolean isActive;
 }

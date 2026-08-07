@@ -37,4 +37,7 @@ public class StudentEntity {
 
     @Column(name = "gender")
     private String gender;
+
+    @Column(name = "nic", nullable = false, unique = true)
+    private String nic;
 }

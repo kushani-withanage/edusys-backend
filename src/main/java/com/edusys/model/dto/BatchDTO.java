@@ -17,7 +17,6 @@ public class BatchDTO {
     private LocalDate startDate;
     private LocalDate endDate;
     private String status;
-    private String teacher;
-    private String courseName;
+    private java.util.List<CourseDTO> courses;
     private Integer studentCount;
 }

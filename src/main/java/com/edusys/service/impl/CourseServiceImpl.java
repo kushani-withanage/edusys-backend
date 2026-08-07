@@ -123,9 +123,6 @@ public class CourseServiceImpl implements CourseService {
             if (batchOpt.isPresent()) {
                 com.edusys.entity.BatchEntity batch = batchOpt.get();
                 batchCodeMap.put(e.getCourseId().toLowerCase(), batch.getBatchName());
-                if (batch.getTeacher() != null) {
-                    instructorMap.put(e.getCourseId().toLowerCase(), batch.getTeacher());
-                }
             }
         });
 
@@ -137,13 +134,6 @@ public class CourseServiceImpl implements CourseService {
             }
             if (g.getBatchCode() != null) {
                 batchCodeMap.put(g.getCourseId().toLowerCase(), g.getBatchCode());
-                Optional<com.edusys.entity.BatchEntity> batchOpt = batchRepository.findByBatchNameIgnoreCase(g.getBatchCode());
-                if (batchOpt.isPresent()) {
-                    com.edusys.entity.BatchEntity batch = batchOpt.get();
-                    if (batch.getTeacher() != null) {
-                        instructorMap.put(g.getCourseId().toLowerCase(), batch.getTeacher());
-                    }
-                }
             }
         });
 

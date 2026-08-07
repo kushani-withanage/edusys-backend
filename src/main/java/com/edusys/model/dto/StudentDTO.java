@@ -24,4 +24,5 @@ public class StudentDTO {
     private LocalDate enrollmentDate;
     private LocalDate dob;
     private String gender;
+    private String nic;
 }

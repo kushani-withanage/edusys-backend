@@ -1,25 +1,22 @@
 package com.edusys.service.impl;
 
-import com.edusys.entity.ExamEntity;
-import com.edusys.entity.QuestionBankEntity;
-import com.edusys.entity.ExamAttemptEntity;
+import com.edusys.entity.*;
 import com.edusys.enums.EntityPrefix;
 import com.edusys.model.dto.ExamDTO;
-import com.edusys.model.dto.QuestionBankDTO;
-import com.edusys.model.dto.ExamAttemptDTO;
-import com.edusys.model.dto.ExamSubmissionDTO;
-import com.edusys.repository.ExamRepository;
-import com.edusys.repository.QuestionBankRepository;
-import com.edusys.repository.ExamAttemptRepository;
+import com.edusys.model.dto.ExamAudienceDTO;
+import com.edusys.model.dto.QuestionDTO;
+import com.edusys.model.dto.QuestionOptionDTO;
+import com.edusys.repository.*;
 import com.edusys.service.ExamService;
 import com.edusys.util.IdGenerator;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class ExamServiceImpl implements ExamService {
@@ -28,10 +25,22 @@ public class ExamServiceImpl implements ExamService {
     private ExamRepository examRepository;
 
     @Autowired
-    private QuestionBankRepository questionBankRepository;
+    private QuestionRepository questionRepository;
+
+    @Autowired
+    private QuestionOptionRepository questionOptionRepository;
+
+    @Autowired
+    private ExamQuestionRepository examQuestionRepository;
+
+    @Autowired
+    private ExamAudienceRepository examAudienceRepository;
 
     @Autowired
     private ExamAttemptRepository examAttemptRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Autowired
     private ModelMapper mapper;
@@ -40,164 +49,323 @@ public class ExamServiceImpl implements ExamService {
     private IdGenerator idGenerator;
 
     @Override
-    public ExamDTO create(ExamDTO examDTO) {
-        if (examDTO.getExamId() == null || examDTO.getExamId().trim().isEmpty()) {
-            examDTO.setExamId(idGenerator.generateId(EntityPrefix.EXAM, examRepository.count()));
+    @Transactional
+    public ExamDTO create(ExamDTO dto) {
+        if (dto.getId() == null || dto.getId().trim().isEmpty()) {
+            dto.setId(idGenerator.generateId(EntityPrefix.EXAM, examRepository.count()));
         }
-        ExamEntity entity = mapper.map(examDTO, ExamEntity.class);
-        if (examDTO.getQuestionIds() != null) {
-            List<QuestionBankEntity> questionEntities = new ArrayList<>();
-            for (String qId : examDTO.getQuestionIds()) {
-                questionBankRepository.findById(qId).ifPresent(questionEntities::add);
+        dto.setStatus("DRAFT");
+        dto.setCreatedAt(LocalDateTime.now());
+
+        ExamEntity entity = mapper.map(dto, ExamEntity.class);
+        entity.setExamQuestions(new ArrayList<>());
+        entity.setAudiences(new ArrayList<>());
+
+        // Add questions
+        if (dto.getQuestionIds() != null) {
+            int index = 0;
+            for (String qId : dto.getQuestionIds()) {
+                QuestionEntity q = questionRepository.findById(qId).orElse(null);
+                if (q != null) {
+                    ExamQuestionEntity.ExamQuestionId eqId = new ExamQuestionEntity.ExamQuestionId(entity.getId(), qId);
+                    ExamQuestionEntity eq = ExamQuestionEntity.builder()
+                            .id(eqId)
+                            .exam(entity)
+                            .question(q)
+                            .orderIndex(index++)
+                            .build();
+                    entity.getExamQuestions().add(eq);
+                }
             }
-            entity.setQuestions(questionEntities);
         }
+
+        // Add audiences
+        if (dto.getAudiences() != null) {
+            for (ExamAudienceDTO audDto : dto.getAudiences()) {
+                audDto.setId(idGenerator.generateId(EntityPrefix.EXAM_ATTEMPT, examAudienceRepository.count() + entity.getAudiences().size()));
+                ExamAudienceEntity audEntity = mapper.map(audDto, ExamAudienceEntity.class);
+                audEntity.setExam(entity);
+                entity.getAudiences().add(audEntity);
+            }
+        }
+
         ExamEntity saved = examRepository.save(entity);
-        ExamDTO responseDto = mapper.map(saved, ExamDTO.class);
-        if (saved.getQuestions() != null) {
-            List<String> qIds = new ArrayList<>();
-            for (QuestionBankEntity q : saved.getQuestions()) {
-                qIds.add(q.getQuestionId());
-            }
-            responseDto.setQuestionIds(qIds);
-        }
-        return responseDto;
+        return convertToDTO(saved);
     }
 
     @Override
     public ExamDTO getById(String id) {
-        return examRepository.findById(id)
-                .map(entity -> {
-                    ExamDTO dto = mapper.map(entity, ExamDTO.class);
-                    if (entity.getQuestions() != null) {
-                        List<String> qIds = new ArrayList<>();
-                        for (QuestionBankEntity q : entity.getQuestions()) {
-                            qIds.add(q.getQuestionId());
-                        }
-                        dto.setQuestionIds(qIds);
-                    }
-                    return dto;
-                })
-                .orElse(null);
+        return examRepository.findById(id).map(this::convertToDTO).orElse(null);
     }
 
     @Override
     public List<ExamDTO> getAll() {
         List<ExamDTO> list = new ArrayList<>();
-        examRepository.findAll().forEach(entity -> {
-            ExamDTO dto = mapper.map(entity, ExamDTO.class);
-            if (entity.getQuestions() != null) {
-                List<String> qIds = new ArrayList<>();
-                for (QuestionBankEntity q : entity.getQuestions()) {
-                    qIds.add(q.getQuestionId());
-                }
-                dto.setQuestionIds(qIds);
-            }
-            list.add(dto);
-        });
+        examRepository.findAll().forEach(entity -> list.add(convertToDTO(entity)));
         return list;
     }
 
     @Override
-    public ExamDTO update(String id, ExamDTO examDTO) {
-        if (!examRepository.existsById(id)) {
+    @Transactional
+    public ExamDTO update(String id, ExamDTO dto) {
+        ExamEntity existing = examRepository.findById(id).orElse(null);
+        if (existing == null) {
             return null;
         }
-        examDTO.setExamId(id);
-        ExamEntity entity = mapper.map(examDTO, ExamEntity.class);
-        if (examDTO.getQuestionIds() != null) {
-            List<QuestionBankEntity> questionEntities = new ArrayList<>();
-            for (String qId : examDTO.getQuestionIds()) {
-                questionBankRepository.findById(qId).ifPresent(questionEntities::add);
-            }
-            entity.setQuestions(questionEntities);
+
+        if (!"DRAFT".equalsIgnoreCase(existing.getStatus())) {
+            throw new IllegalStateException("Only exams in DRAFT status can be modified.");
         }
-        ExamEntity updated = examRepository.save(entity);
-        ExamDTO responseDto = mapper.map(updated, ExamDTO.class);
-        if (updated.getQuestions() != null) {
-            List<String> qIds = new ArrayList<>();
-            for (QuestionBankEntity q : updated.getQuestions()) {
-                qIds.add(q.getQuestionId());
+
+        existing.setTitle(dto.getTitle());
+        existing.setDescription(dto.getDescription());
+        existing.setCourseId(dto.getCourseId());
+        existing.setStartTime(dto.getStartTime());
+        existing.setEndTime(dto.getEndTime());
+        existing.setDurationMinutes(dto.getDurationMinutes());
+        existing.setShuffleQuestions(dto.getShuffleQuestions() != null ? dto.getShuffleQuestions() : false);
+        existing.setShuffleOptions(dto.getShuffleOptions() != null ? dto.getShuffleOptions() : false);
+        existing.setAttemptsAllowed(dto.getAttemptsAllowed() != null ? dto.getAttemptsAllowed() : 1);
+
+        // Update questions
+        examQuestionRepository.deleteAll(existing.getExamQuestions());
+        existing.getExamQuestions().clear();
+        if (dto.getQuestionIds() != null) {
+            int index = 0;
+            for (String qId : dto.getQuestionIds()) {
+                QuestionEntity q = questionRepository.findById(qId).orElse(null);
+                if (q != null) {
+                    ExamQuestionEntity.ExamQuestionId eqId = new ExamQuestionEntity.ExamQuestionId(id, qId);
+                    ExamQuestionEntity eq = ExamQuestionEntity.builder()
+                            .id(eqId)
+                            .exam(existing)
+                            .question(q)
+                            .orderIndex(index++)
+                            .build();
+                    existing.getExamQuestions().add(eq);
+                }
             }
-            responseDto.setQuestionIds(qIds);
         }
-        return responseDto;
+
+        // Update audiences
+        examAudienceRepository.deleteAll(existing.getAudiences());
+        existing.getAudiences().clear();
+        if (dto.getAudiences() != null) {
+            for (ExamAudienceDTO audDto : dto.getAudiences()) {
+                audDto.setId(idGenerator.generateId(EntityPrefix.EXAM_ATTEMPT, examAudienceRepository.count() + existing.getAudiences().size()));
+                ExamAudienceEntity audEntity = mapper.map(audDto, ExamAudienceEntity.class);
+                audEntity.setExam(existing);
+                existing.getAudiences().add(audEntity);
+            }
+        }
+
+        ExamEntity updated = examRepository.save(existing);
+        return convertToDTO(updated);
     }
 
     @Override
+    @Transactional
     public boolean delete(String id) {
-        if (examRepository.existsById(id)) {
-            examRepository.deleteById(id);
+        ExamEntity existing = examRepository.findById(id).orElse(null);
+        if (existing != null) {
+            if (!"DRAFT".equalsIgnoreCase(existing.getStatus())) {
+                throw new IllegalStateException("Only exams in DRAFT status can be deleted.");
+            }
+            examRepository.delete(existing);
             return true;
         }
         return false;
     }
 
     @Override
-    public List<QuestionBankDTO> getQuestionsForExam(String examId) {
-        ExamEntity exam = examRepository.findById(examId).orElse(null);
-        if (exam == null || exam.getQuestions() == null) {
-            return new ArrayList<>();
-        }
-        List<QuestionBankDTO> dtos = new ArrayList<>();
-        for (QuestionBankEntity question : exam.getQuestions()) {
-            QuestionBankDTO dto = mapper.map(question, QuestionBankDTO.class);
-            dto.setCorrectAnswers(null); // Hide answers for exam-taking
-            dtos.add(dto);
-        }
-        return dtos;
-    }
-
-    @Override
-    public ExamAttemptDTO submitExam(String examId, ExamSubmissionDTO submission) {
-        ExamEntity exam = examRepository.findById(examId).orElse(null);
-        if (exam == null) {
+    @Transactional
+    public ExamDTO publish(String id) {
+        ExamEntity existing = examRepository.findById(id).orElse(null);
+        if (existing == null) {
             return null;
         }
 
-        int earnedMarks = 0;
-        int examTotalMarks = 0;
+        if (existing.getStartTime().isAfter(existing.getEndTime())) {
+            throw new IllegalArgumentException("Start time must be before end time.");
+        }
 
-        if (submission.getAnswers() != null && exam.getQuestions() != null) {
-            for (QuestionBankEntity question : exam.getQuestions()) {
-                int questionMarks = question.getMarks() != null ? question.getMarks() : 0;
-                examTotalMarks += questionMarks;
+        if (existing.getExamQuestions() == null || existing.getExamQuestions().isEmpty()) {
+            throw new IllegalStateException("Cannot publish an exam with no questions.");
+        }
 
-                List<String> studentAnsList = submission.getAnswers().get(question.getQuestionId());
-                List<String> correctAnsList = question.getCorrectAnswers();
+        existing.setStatus("PUBLISHED");
 
-                if (studentAnsList != null && !studentAnsList.isEmpty() && correctAnsList != null && !correctAnsList.isEmpty()) {
-                    String studentAns = studentAnsList.get(0).trim();
-                    String correctAns = correctAnsList.get(0).trim();
+        // Lock all attached questions
+        for (ExamQuestionEntity eq : existing.getExamQuestions()) {
+            QuestionEntity q = eq.getQuestion();
+            q.setStatus("LOCKED");
+            questionRepository.save(q);
+        }
 
-                    if (question.getQuestionType() != null && question.getQuestionType().equalsIgnoreCase("Short Answer")) {
-                        if (studentAns.equalsIgnoreCase(correctAns)) {
-                            earnedMarks += questionMarks;
-                        }
-                    } else {
-                        // MCQ
-                        if (studentAns.equals(correctAns)) {
-                            earnedMarks += questionMarks;
+        ExamEntity saved = examRepository.save(existing);
+        return convertToDTO(saved);
+    }
+
+    @Override
+    @Transactional
+    public ExamDTO close(String id) {
+        ExamEntity existing = examRepository.findById(id).orElse(null);
+        if (existing == null) {
+            return null;
+        }
+        existing.setStatus("CLOSED");
+        ExamEntity saved = examRepository.save(existing);
+        return convertToDTO(saved);
+    }
+
+    @Override
+    public List<QuestionDTO> getQuestionsForExam(String examId, boolean stripCorrectAnswers) {
+        List<ExamQuestionEntity> examQuestions = examQuestionRepository.findByExamIdOrderByOrderIndexAsc(examId);
+        List<QuestionDTO> list = new ArrayList<>();
+        for (ExamQuestionEntity eq : examQuestions) {
+            QuestionEntity qEntity = eq.getQuestion();
+            QuestionDTO qDto = mapper.map(qEntity, QuestionDTO.class);
+            if (eq.getMarksOverride() != null) {
+                qDto.setDefaultMarks(eq.getMarksOverride());
+            }
+            
+            // Map and sort options
+            if (qEntity.getOptions() != null) {
+                List<QuestionOptionDTO> optionDTOs = qEntity.getOptions().stream()
+                        .map(o -> {
+                            QuestionOptionDTO oDto = mapper.map(o, QuestionOptionDTO.class);
+                            if (stripCorrectAnswers) {
+                                oDto.setIsCorrect(false); // Never leak answers to client
+                            }
+                            return oDto;
+                        })
+                        .sorted(Comparator.comparing(QuestionOptionDTO::getOrderIndex))
+                        .collect(Collectors.toList());
+                qDto.setOptions(optionDTOs);
+            }
+            list.add(qDto);
+        }
+        return list;
+    }
+
+    @Override
+    public Map<String, Object> getExamAnalytics(String examId) {
+        Map<String, Object> analytics = new HashMap<>();
+        ExamEntity exam = examRepository.findById(examId).orElse(null);
+        if (exam == null) {
+            return analytics;
+        }
+
+        List<ExamAttemptEntity> attempts = examAttemptRepository.findByExamId(examId);
+        List<ExamQuestionEntity> examQuestions = examQuestionRepository.findByExamIdOrderByOrderIndexAsc(examId);
+
+        // Core stats
+        int totalAttempts = attempts.size();
+        double avgScore = 0.0;
+        int passedCount = 0;
+        int maxExamMarks = examQuestions.stream().mapToInt(eq -> eq.getMarksOverride() != null ? eq.getMarksOverride() : eq.getQuestion().getDefaultMarks()).sum();
+
+        // Score distributions: 0-20, 20-40, 40-60, 60-80, 80-100
+        int[] ranges = new int[5];
+
+        List<Map<String, Object>> studentAttemptsList = new ArrayList<>();
+
+        for (ExamAttemptEntity attempt : attempts) {
+            double finalScore = attempt.getScore() != null ? attempt.getScore() : 0.0;
+            avgScore += finalScore;
+
+            if (finalScore >= 50.0) {
+                passedCount++;
+            }
+
+            int rangeIndex = (int) (finalScore / 20.0);
+            if (rangeIndex >= 5) rangeIndex = 4;
+            ranges[rangeIndex]++;
+
+            // Student profile details
+            Optional<UserEntity> studentUser = userRepository.findById(attempt.getStudentId());
+            Map<String, Object> map = new HashMap<>();
+            map.put("attemptId", attempt.getId());
+            map.put("studentId", attempt.getStudentId());
+            map.put("studentName", studentUser.map(UserEntity::getFullName).orElse("Unknown student"));
+            map.put("studentEmail", studentUser.map(UserEntity::getEmail).orElse(""));
+            map.put("startedAt", attempt.getStartedAt());
+            map.put("submittedAt", attempt.getSubmittedAt());
+            map.put("status", attempt.getStatus());
+            map.put("score", finalScore);
+            studentAttemptsList.add(map);
+        }
+
+        avgScore = totalAttempts > 0 ? (avgScore / totalAttempts) : 0.0;
+        double passRate = totalAttempts > 0 ? ((double) passedCount * 100.0 / totalAttempts) : 0.0;
+
+        analytics.put("title", exam.getTitle());
+        analytics.put("status", exam.getStatus());
+        analytics.put("totalAttempts", totalAttempts);
+        analytics.put("averageScore", avgScore);
+        analytics.put("passRate", passRate);
+        analytics.put("maxMarks", maxExamMarks);
+        analytics.put("ranges", ranges);
+        analytics.put("attempts", studentAttemptsList);
+
+        // Correct rate per question
+        List<Map<String, Object>> questionStats = new ArrayList<>();
+        for (ExamQuestionEntity eq : examQuestions) {
+            Map<String, Object> qStat = new HashMap<>();
+            qStat.put("questionId", eq.getQuestion().getId());
+            qStat.put("questionText", eq.getQuestion().getQuestionText());
+
+            // Count correct answers
+            int correctAnswersCount = 0;
+            int totalQuestionAnswers = 0;
+            for (ExamAttemptEntity attempt : attempts) {
+                if (attempt.getAnswers() != null) {
+                    for (ExamAnswerEntity ans : attempt.getAnswers()) {
+                        if (ans.getQuestionId().equals(eq.getQuestion().getId())) {
+                            totalQuestionAnswers++;
+                            if (Boolean.TRUE.equals(ans.getIsCorrect())) {
+                                correctAnswersCount++;
+                            }
                         }
                     }
                 }
             }
+
+            double correctRate = totalQuestionAnswers > 0 ? ((double) correctAnswersCount * 100.0 / totalQuestionAnswers) : 0.0;
+            qStat.put("correctRate", correctRate);
+            qStat.put("totalAnswers", totalQuestionAnswers);
+            questionStats.add(qStat);
+        }
+        analytics.put("questionStats", questionStats);
+
+        return analytics;
+    }
+
+    private ExamDTO convertToDTO(ExamEntity entity) {
+        ExamDTO dto = mapper.map(entity, ExamDTO.class);
+        
+        // Map questionIds
+        if (entity.getExamQuestions() != null) {
+            List<String> qIds = entity.getExamQuestions().stream()
+                    .map(eq -> eq.getQuestion().getId())
+                    .collect(Collectors.toList());
+            dto.setQuestionIds(qIds);
+
+            // Compute total marks
+            int total = entity.getExamQuestions().stream()
+                    .mapToInt(eq -> eq.getMarksOverride() != null ? eq.getMarksOverride() : eq.getQuestion().getDefaultMarks())
+                    .sum();
+            dto.setTotalMarks(total);
         }
 
-        Double scorePercent = examTotalMarks > 0 ? ((double) earnedMarks * 100.0) / examTotalMarks : 0.0;
-        String resultStatus = scorePercent >= 50.0 ? "PASS" : "FAIL";
+        // Map audiences
+        if (entity.getAudiences() != null) {
+            List<ExamAudienceDTO> audiences = entity.getAudiences().stream()
+                    .map(a -> mapper.map(a, ExamAudienceDTO.class))
+                    .collect(Collectors.toList());
+            dto.setAudiences(audiences);
+        }
 
-        ExamAttemptEntity attempt = ExamAttemptEntity.builder()
-                .attemptId(idGenerator.generateId(EntityPrefix.EXAM_ATTEMPT, examAttemptRepository.count()))
-                .examId(examId)
-                .studentId(submission.getStudentId())
-                .startTime(submission.getStartTime() != null ? submission.getStartTime() : LocalDateTime.now().minusMinutes(30))
-                .submitTime(LocalDateTime.now())
-                .status(resultStatus)
-                .score(scorePercent)
-                .build();
-
-        ExamAttemptEntity saved = examAttemptRepository.save(attempt);
-        return mapper.map(saved, ExamAttemptDTO.class);
+        return dto;
     }
 }

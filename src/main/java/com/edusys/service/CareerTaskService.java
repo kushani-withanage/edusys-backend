@@ -8,6 +8,8 @@ public interface CareerTaskService {
     CareerTaskDTO create(CareerTaskDTO dto);
     CareerTaskDTO getById(String id);
     List<CareerTaskDTO> getAll();
+    List<CareerTaskDTO> getByLevelId(String levelId);
+    List<CareerTaskDTO> getByLevelIdAndIsActive(String levelId, Boolean isActive);
     CareerTaskDTO update(String id, CareerTaskDTO dto);
     boolean delete(String id);
 }

@@ -30,6 +30,8 @@ public class AuthServiceImpl implements AuthService {
     @Autowired
     private IdGenerator idGenerator;
 
+    private final java.util.concurrent.ConcurrentHashMap<String, String> resetOtpMap = new java.util.concurrent.ConcurrentHashMap<>();
+
     @Override
     public AuthResponseDTO register(RegisterRequestDTO registerDTO) {
         if (userRepository.existsByEmail(registerDTO.getEmail())) {
@@ -85,5 +87,39 @@ public class AuthServiceImpl implements AuthService {
                 .email(user.getEmail())
                 .role(user.getRole())
                 .build();
+    }
+
+    @Override
+    public void resetPassword(String email, String newPassword) {
+        UserEntity user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Email address not found."));
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
+    @Override
+    public boolean existsByEmail(String email) {
+        return userRepository.existsByEmail(email);
+    }
+
+    @Override
+    public String generateResetOtp(String email) {
+        if (!existsByEmail(email)) {
+            throw new IllegalArgumentException("Email address not found.");
+        }
+        String otp = String.format("%06d", new java.util.Random().nextInt(999999));
+        resetOtpMap.put(email, otp);
+        System.out.println("====== RESET PASSWORD OTP FOR " + email + " IS: " + otp + " ======");
+        return otp;
+    }
+
+    @Override
+    public void resetPasswordWithOtp(String email, String otp, String newPassword) {
+        String savedOtp = resetOtpMap.get(email);
+        if (savedOtp == null || !savedOtp.equals(otp)) {
+            throw new IllegalArgumentException("Invalid or expired verification code.");
+        }
+        resetPassword(email, newPassword);
+        resetOtpMap.remove(email);
     }
 }

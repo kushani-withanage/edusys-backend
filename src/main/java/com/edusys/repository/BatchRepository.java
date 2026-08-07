@@ -10,4 +10,5 @@ import java.time.LocalDate;
 public interface BatchRepository extends CrudRepository<BatchEntity, String> {
     long countByStartDateLessThanEqualAndEndDateGreaterThanEqual(LocalDate today1, LocalDate today2);
     java.util.Optional<BatchEntity> findByBatchNameIgnoreCase(String batchName);
+    java.util.Optional<BatchEntity> findByBatchNameIgnoreCaseAndBatchIdNot(String batchName, String batchId);
 }

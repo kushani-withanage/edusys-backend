@@ -1,6 +1,7 @@
 package com.edusys.controller;
 
 import com.edusys.model.dto.BatchDTO;
+import com.edusys.model.dto.CourseDTO;
 import com.edusys.service.BatchService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -53,5 +54,23 @@ public class BatchController {
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.notFound().build();
+    }
+
+    @GetMapping("/check-code")
+    public ResponseEntity<Boolean> checkCode(
+            @RequestParam String code,
+            @RequestParam(required = false) String excludeId) {
+        boolean isTaken = batchService.isCodeTaken(code, excludeId);
+        return ResponseEntity.ok(isTaken);
+    }
+
+    @GetMapping("/{id}/courses")
+    public ResponseEntity<List<CourseDTO>> getCoursesForBatch(@PathVariable String id) {
+        return ResponseEntity.ok(batchService.getCoursesForBatch(id));
+    }
+
+    @GetMapping("/{id}/students")
+    public ResponseEntity<List<com.edusys.model.dto.UserDTO>> getStudentsInBatch(@PathVariable String id) {
+        return ResponseEntity.ok(batchService.getStudentsInBatch(id));
     }
 }

@@ -35,9 +35,13 @@ public class BatchEntity {
     @Column(name = "status")
     private String status;
 
-    @Column(name = "teacher")
-    private String teacher;
-
-    @Column(name = "course_name")
-    private String courseName;
+    @jakarta.persistence.ManyToMany
+    @jakarta.persistence.JoinTable(
+        name = "batch_course",
+        joinColumns = @jakarta.persistence.JoinColumn(name = "batch_id"),
+        inverseJoinColumns = @jakarta.persistence.JoinColumn(name = "course_id")
+    )
+    @lombok.ToString.Exclude
+    @lombok.EqualsAndHashCode.Exclude
+    private java.util.Set<com.edusys.entity.CourseEntity> courses;
 }

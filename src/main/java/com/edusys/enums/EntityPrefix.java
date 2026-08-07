@@ -18,6 +18,8 @@ public enum EntityPrefix {
     FEE_RECORD("fee"),
     RECEIPT("rec"),
     QUESTION_BANK("qst"),
+    QUESTION("qst"),
+    QUESTION_OPTION("qop"),
     EXAM("exm"),
     EXAM_ATTEMPT("eat"),
     ASSIGNMENT("asn"),

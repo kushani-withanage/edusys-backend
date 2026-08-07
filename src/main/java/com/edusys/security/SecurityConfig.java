@@ -41,6 +41,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/api/v1/auth/**", "/test/**", "/error", "/uploads/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/course-access-grants/**").hasAnyRole("ADMIN", "STUDENT")
                 .requestMatchers("/api/v1/course-access-grants/**").hasRole("ADMIN")
@@ -48,10 +49,13 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/v1/career-tasks/**").hasAnyRole("ADMIN", "TEACHER", "REVIEWER", "STUDENT")
                 .requestMatchers(HttpMethod.GET, "/api/v1/courses/**", "/api/v1/batches/**", "/api/v1/semesters/**", "/api/v1/assignments/**", "/api/v1/exams/**", "/api/v1/grades/**").hasAnyRole("ADMIN", "TEACHER", "STUDENT", "PARENT")
                 .requestMatchers(HttpMethod.GET, "/api/v1/career-levels/**").hasAnyRole("ADMIN", "REVIEWER", "STUDENT")
+                .requestMatchers("/api/v1/career/tasks/*/submissions", "/api/v1/career/submissions/mine", "/api/v1/career/progress").hasRole("STUDENT")
+                .requestMatchers("/api/v1/career/submissions/**").hasAnyRole("ADMIN", "REVIEWER")
+                .requestMatchers("/api/v1/career/students/*/override").hasRole("ADMIN")
                 .requestMatchers("/api/v1/admins/**", "/api/v1/users/**", "/api/v1/fee-records/**", "/api/v1/receipts/**", "/api/v1/inquiries/**", "/api/v1/dashboard/**").hasRole("ADMIN")
                 .requestMatchers("/api/v1/exams/*/questions", "/api/v1/exams/*/submit").hasAnyRole("ADMIN", "TEACHER", "STUDENT")
                 .requestMatchers("/api/v1/teachers/**", "/api/v1/courses/**", "/api/v1/batches/**", "/api/v1/semesters/**", "/api/v1/question-bank/**", "/api/v1/exams/**", "/api/v1/assignments/**", "/api/v1/grades/**").hasAnyRole("ADMIN", "TEACHER")
-                .requestMatchers("/api/v1/reviewers/**", "/api/v1/career-tasks/**", "/api/v1/evaluations/**", "/api/v1/career-levels/**").hasAnyRole("ADMIN", "REVIEWER")
+                .requestMatchers("/api/v1/reviewers/**", "/api/v1/career-tasks/**", "/api/v1/career-levels/**").hasAnyRole("ADMIN", "REVIEWER")
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

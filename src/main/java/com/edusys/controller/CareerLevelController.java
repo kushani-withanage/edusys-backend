@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/career-levels")
@@ -47,11 +48,15 @@ public class CareerLevelController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable String id) {
-        boolean deleted = careerLevelService.delete(id);
-        if (deleted) {
-            return ResponseEntity.noContent().build();
+    public ResponseEntity<?> delete(@PathVariable String id) {
+        try {
+            boolean deleted = careerLevelService.delete(id);
+            if (deleted) {
+                return ResponseEntity.noContent().build();
+            }
+            return ResponseEntity.notFound().build();
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
-        return ResponseEntity.notFound().build();
     }
 }

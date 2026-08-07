@@ -12,10 +12,21 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CareerSubmissionDTO {
-    private String submissionId;
+    private String id;
     private String taskId;
+    private String taskTitle;
+    private Integer taskPointsValue;
     private String studentId;
-    private String status;
-    private String submittedFile;
-    private LocalDateTime submitDate;
+    private String studentName;
+    private String submissionType;
+    private String submissionUrl;
+    private String filePath;
+    private String submissionText;
+    private String status; // PENDING, APPROVED, REJECTED, REVISION_REQUESTED
+    private Integer pointsAwarded;
+    private String reviewerId;
+    private String reviewerComment;
+    private LocalDateTime submittedAt;
+    private LocalDateTime reviewedAt;
+    private String resubmissionOf;
 }
