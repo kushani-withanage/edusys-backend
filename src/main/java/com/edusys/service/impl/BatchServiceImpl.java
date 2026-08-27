@@ -50,8 +50,9 @@ public class BatchServiceImpl implements BatchService {
     private BatchDTO convertToDTO(BatchEntity entity) {
         if (entity == null) return null;
         BatchDTO dto = mapper.map(entity, BatchDTO.class);
-        long count = enrollmentRepository.countByBatchId(entity.getBatchId());
-        dto.setStudentCount((int) count);
+        Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM students WHERE current_batch_id = ?", Long.class, entity.getBatchId());
+        if (count == null) count = 0L;
+        dto.setStudentCount(count.intValue());
         if (entity.getCourses() != null) {
             List<CourseDTO> courseDTOs = new ArrayList<>();
             entity.getCourses().forEach(c -> courseDTOs.add(mapper.map(c, CourseDTO.class)));
@@ -91,6 +92,7 @@ public class BatchServiceImpl implements BatchService {
     }
 
     @Override
+    @Transactional
     public BatchDTO getById(String id) {
         return batchRepository.findById(id)
                 .map(this::convertToDTO)
@@ -98,6 +100,7 @@ public class BatchServiceImpl implements BatchService {
     }
 
     @Override
+    @Transactional
     public List<BatchDTO> getAll() {
         List<BatchDTO> list = new ArrayList<>();
         batchRepository.findAll().forEach(entity -> list.add(convertToDTO(entity)));
@@ -172,6 +175,7 @@ public class BatchServiceImpl implements BatchService {
     }
 
     @Override
+    @Transactional
     public List<CourseDTO> getCoursesForBatch(String batchId) {
         BatchEntity batch = batchRepository.findById(batchId).orElse(null);
         if (batch == null) {

@@ -9,6 +9,7 @@ import com.edusys.util.IdGenerator;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +26,9 @@ public class ParentStudentLinkServiceImpl implements ParentStudentLinkService {
     @Autowired
     private IdGenerator idGenerator;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     @Override
     public ParentStudentLinkDTO create(ParentStudentLinkDTO dto) {
         if (dto.getLinkId() == null || dto.getLinkId().trim().isEmpty()) {
@@ -32,6 +36,11 @@ public class ParentStudentLinkServiceImpl implements ParentStudentLinkService {
         }
         ParentStudentLinkEntity entity = mapper.map(dto, ParentStudentLinkEntity.class);
         ParentStudentLinkEntity saved = parentStudentLinkRepository.save(entity);
+
+        // Also insert into student_parent
+        jdbcTemplate.update("INSERT IGNORE INTO student_parent (student_id, parent_id) VALUES (?, ?)",
+                dto.getStudentId(), dto.getParentId());
+
         return mapper.map(saved, ParentStudentLinkDTO.class);
     }
 
@@ -63,6 +72,11 @@ public class ParentStudentLinkServiceImpl implements ParentStudentLinkService {
     @Override
     public boolean delete(String id) {
         if (parentStudentLinkRepository.existsById(id)) {
+            ParentStudentLinkEntity entity = parentStudentLinkRepository.findById(id).orElse(null);
+            if (entity != null) {
+                jdbcTemplate.update("DELETE FROM student_parent WHERE student_id = ? AND parent_id = ?",
+                        entity.getStudentId(), entity.getParentId());
+            }
             parentStudentLinkRepository.deleteById(id);
             return true;
         }

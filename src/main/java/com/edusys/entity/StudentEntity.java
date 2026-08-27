@@ -40,4 +40,7 @@ public class StudentEntity {
 
     @Column(name = "nic", nullable = false, unique = true)
     private String nic;
+
+    @Column(name = "current_batch_id", length = 36)
+    private String currentBatchId;
 }

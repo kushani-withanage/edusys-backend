@@ -10,4 +10,5 @@ import java.util.List;
 public interface EnrollmentRepository extends CrudRepository<EnrollmentEntity, String> {
     long countByBatchId(String batchId);
     List<EnrollmentEntity> findByStudentId(String studentId);
+    List<EnrollmentEntity> findByBatchId(String batchId);
 }

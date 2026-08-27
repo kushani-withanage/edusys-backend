@@ -67,6 +67,12 @@ public class StudentExamServiceImpl implements StudentExamService {
         List<String> batchIds = new ArrayList<>();
         List<String> courseIds = new ArrayList<>();
 
+        studentRepository.findById(studentId).ifPresent(student -> {
+            if (student.getCurrentBatchId() != null && !student.getCurrentBatchId().trim().isEmpty()) {
+                batchIds.add(student.getCurrentBatchId());
+            }
+        });
+
         enrollmentRepository.findByStudentId(studentId).forEach(e -> {
             if (e.getBatchId() != null) batchIds.add(e.getBatchId());
             if (e.getCourseId() != null) courseIds.add(e.getCourseId());

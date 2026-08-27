@@ -1,10 +1,12 @@
 package com.edusys.service.impl;
 
+import com.edusys.entity.BatchEntity;
 import com.edusys.entity.CareerLevelEntity;
 import com.edusys.entity.CareerTaskEntity;
 import com.edusys.entity.UserEntity;
 import com.edusys.enums.EntityPrefix;
 import com.edusys.model.dto.CareerTaskDTO;
+import com.edusys.repository.BatchRepository;
 import com.edusys.repository.CareerLevelRepository;
 import com.edusys.repository.CareerTaskRepository;
 import com.edusys.repository.UserRepository;
@@ -18,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -31,6 +35,9 @@ public class CareerTaskServiceImpl implements CareerTaskService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private BatchRepository batchRepository;
 
     @Autowired
     private ModelMapper mapper;
@@ -47,11 +54,32 @@ public class CareerTaskServiceImpl implements CareerTaskService {
         CareerLevelEntity level = careerLevelRepository.findById(dto.getLevelId())
                 .orElseThrow(() -> new IllegalArgumentException("Level not found: " + dto.getLevelId()));
         
-        UserEntity creator = userRepository.findById(dto.getCreatedBy() != null ? dto.getCreatedBy() : "usr0007")
+        String creatorId = dto.getCreatedBy();
+        if (creatorId == null || creatorId.trim().isEmpty()) {
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && !auth.getName().equalsIgnoreCase("anonymous")) {
+                creatorId = auth.getName();
+            } else {
+                creatorId = "usr0001";
+            }
+        }
+        
+        UserEntity creator = userRepository.findById(creatorId)
+                .or(() -> userRepository.findById("usr0001"))
+                .or(() -> userRepository.findAll().iterator().hasNext() 
+                    ? Optional.of(userRepository.findAll().iterator().next()) 
+                    : Optional.empty())
                 .orElseThrow(() -> new IllegalArgumentException("Creator user not found"));
 
         if (dto.getIsActive() == null) {
             dto.setIsActive(true);
+        }
+        
+        List<BatchEntity> batches = new ArrayList<>();
+        if (dto.getBatchIds() != null) {
+            for (String batchId : dto.getBatchIds()) {
+                batchRepository.findById(batchId).ifPresent(batches::add);
+            }
         }
         
         CareerTaskEntity entity = new CareerTaskEntity();
@@ -59,11 +87,11 @@ public class CareerTaskServiceImpl implements CareerTaskService {
         entity.setLevel(level);
         entity.setTitle(dto.getTitle());
         entity.setDescription(dto.getDescription());
-        entity.setSubmissionType(dto.getSubmissionType());
         entity.setPointsValue(dto.getPointsValue());
         entity.setIsActive(dto.getIsActive());
         entity.setCreator(creator);
         entity.setCreatedAt(LocalDateTime.now());
+        entity.setBatches(batches);
         
         CareerTaskEntity saved = careerTaskRepository.save(entity);
         return convertToDTO(saved);
@@ -113,10 +141,17 @@ public class CareerTaskServiceImpl implements CareerTaskService {
         existing.setTitle(dto.getTitle());
         existing.setDescription(dto.getDescription());
         existing.setPointsValue(dto.getPointsValue());
-        existing.setSubmissionType(dto.getSubmissionType());
         if (dto.getIsActive() != null) {
             existing.setIsActive(dto.getIsActive());
         }
+
+        List<BatchEntity> batches = new ArrayList<>();
+        if (dto.getBatchIds() != null) {
+            for (String batchId : dto.getBatchIds()) {
+                batchRepository.findById(batchId).ifPresent(batches::add);
+            }
+        }
+        existing.setBatches(batches);
 
         CareerTaskEntity updated = careerTaskRepository.save(existing);
         return convertToDTO(updated);
@@ -140,6 +175,9 @@ public class CareerTaskServiceImpl implements CareerTaskService {
         }
         if (entity.getCreator() != null) {
             dto.setCreatedBy(entity.getCreator().getUserId());
+        }
+        if (entity.getBatches() != null) {
+            dto.setBatchIds(entity.getBatches().stream().map(BatchEntity::getBatchId).collect(Collectors.toList()));
         }
         return dto;
     }

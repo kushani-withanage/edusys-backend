@@ -25,4 +25,7 @@ public class StudentDTO {
     private LocalDate dob;
     private String gender;
     private String nic;
+    private String currentBatchId;
+    private String guardianName;
+    private String guardianEmail;
 }

@@ -29,6 +29,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = getJwtFromRequest(request);
 
         if (StringUtils.hasText(token) && tokenProvider.validateToken(token)) {
+            String scope = tokenProvider.getScopeFromToken(token);
+            if ("SET_PASSWORD".equals(scope)) {
+                if (!request.getRequestURI().endsWith("/api/v1/auth/set-password")) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access limited to setting password.");
+                    return;
+                }
+            }
+
             String userId = tokenProvider.getUserIdFromToken(token);
             String role = tokenProvider.getRoleFromToken(token);
 

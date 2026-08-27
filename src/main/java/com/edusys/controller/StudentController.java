@@ -54,4 +54,17 @@ public class StudentController {
         }
         return ResponseEntity.notFound().build();
     }
+
+    @PostMapping("/{id}/transfer-batch")
+    public ResponseEntity<?> transferBatch(@PathVariable String id, @RequestBody java.util.Map<String, String> payload) {
+        String batchId = payload.get("batchId");
+        if (batchId == null || batchId.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("batchId is required.");
+        }
+        boolean transferred = studentService.transferBatch(id, batchId);
+        if (transferred) {
+            return ResponseEntity.ok(java.util.Map.of("message", "Batch transferred successfully."));
+        }
+        return ResponseEntity.notFound().build();
+    }
 }

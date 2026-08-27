@@ -52,7 +52,12 @@ public class ExamServiceImpl implements ExamService {
     @Transactional
     public ExamDTO create(ExamDTO dto) {
         if (dto.getId() == null || dto.getId().trim().isEmpty()) {
-            dto.setId(idGenerator.generateId(EntityPrefix.EXAM, examRepository.count()));
+            long count = examRepository.count();
+            String generatedId;
+            do {
+                generatedId = idGenerator.generateId(EntityPrefix.EXAM, count++);
+            } while (examRepository.existsById(generatedId));
+            dto.setId(generatedId);
         }
         dto.setStatus("DRAFT");
         dto.setCreatedAt(LocalDateTime.now());
@@ -82,7 +87,7 @@ public class ExamServiceImpl implements ExamService {
         // Add audiences
         if (dto.getAudiences() != null) {
             for (ExamAudienceDTO audDto : dto.getAudiences()) {
-                audDto.setId(idGenerator.generateId(EntityPrefix.EXAM_ATTEMPT, examAudienceRepository.count() + entity.getAudiences().size()));
+                audDto.setId(UUID.randomUUID().toString());
                 ExamAudienceEntity audEntity = mapper.map(audDto, ExamAudienceEntity.class);
                 audEntity.setExam(entity);
                 entity.getAudiences().add(audEntity);
@@ -152,7 +157,7 @@ public class ExamServiceImpl implements ExamService {
         existing.getAudiences().clear();
         if (dto.getAudiences() != null) {
             for (ExamAudienceDTO audDto : dto.getAudiences()) {
-                audDto.setId(idGenerator.generateId(EntityPrefix.EXAM_ATTEMPT, examAudienceRepository.count() + existing.getAudiences().size()));
+                audDto.setId(UUID.randomUUID().toString());
                 ExamAudienceEntity audEntity = mapper.map(audDto, ExamAudienceEntity.class);
                 audEntity.setExam(existing);
                 existing.getAudiences().add(audEntity);

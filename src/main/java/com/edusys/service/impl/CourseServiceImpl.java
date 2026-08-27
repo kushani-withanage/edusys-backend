@@ -50,6 +50,9 @@ public class CourseServiceImpl implements CourseService {
     @Autowired
     private com.edusys.repository.BatchRepository batchRepository;
 
+    @Autowired
+    private com.edusys.repository.StudentRepository studentRepository;
+
     @Override
     public CourseDTO create(CourseDTO courseDTO) {
         if (courseDTO.getCourseId() == null || courseDTO.getCourseId().trim().isEmpty()) {
@@ -61,16 +64,59 @@ public class CourseServiceImpl implements CourseService {
     }
 
     @Override
+    @Transactional
     public CourseDTO getById(String id) {
         return courseRepository.findById(id)
-                .map(entity -> mapper.map(entity, CourseDTO.class))
+                .map(entity -> {
+                    CourseDTO dto = mapper.map(entity, CourseDTO.class);
+                    if (dto.getBatchCode() == null || dto.getBatchCode().trim().isEmpty()) {
+                        List<String> batches = new ArrayList<>();
+                        try {
+                            batchRepository.findAll().forEach(batch -> {
+                                if (batch.getCourses() != null) {
+                                    boolean hasCourse = batch.getCourses().stream()
+                                            .anyMatch(c -> c.getCourseId().equalsIgnoreCase(id));
+                                    if (hasCourse) {
+                                        batches.add(batch.getBatchName());
+                                    }
+                                }
+                            });
+                        } catch (Exception e) {}
+                        if (!batches.isEmpty()) {
+                            dto.setBatchCode(String.join(", ", batches));
+                        }
+                    }
+                    return dto;
+                })
                 .orElse(null);
     }
 
     @Override
+    @Transactional
     public List<CourseDTO> getAll() {
         List<CourseDTO> list = new ArrayList<>();
-        courseRepository.findAll().forEach(entity -> list.add(mapper.map(entity, CourseDTO.class)));
+        Map<String, List<String>> courseBatchMap = new HashMap<>();
+        try {
+            batchRepository.findAll().forEach(batch -> {
+                if (batch.getCourses() != null) {
+                    batch.getCourses().forEach(course -> {
+                        courseBatchMap.computeIfAbsent(course.getCourseId().toLowerCase(), k -> new ArrayList<>())
+                                      .add(batch.getBatchName());
+                    });
+                }
+            });
+        } catch (Exception e) {}
+
+        courseRepository.findAll().forEach(entity -> {
+            CourseDTO dto = mapper.map(entity, CourseDTO.class);
+            if (dto.getBatchCode() == null || dto.getBatchCode().trim().isEmpty()) {
+                List<String> batches = courseBatchMap.get(entity.getCourseId().toLowerCase());
+                if (batches != null && !batches.isEmpty()) {
+                    dto.setBatchCode(String.join(", ", batches));
+                }
+            }
+            list.add(dto);
+        });
         return list;
     }
 
@@ -100,6 +146,7 @@ public class CourseServiceImpl implements CourseService {
     }
 
     @Override
+    @Transactional
     public List<CourseDTO> getCoursesForUser(String userId) {
         Optional<com.edusys.entity.UserEntity> userOpt = userRepository.findById(userId);
         if (!userOpt.isPresent()) {
@@ -115,16 +162,32 @@ public class CourseServiceImpl implements CourseService {
         Map<String, String> batchCodeMap = new HashMap<>();
         Map<String, String> instructorMap = new HashMap<>();
 
-        // 1. Add standard enrollments
-        enrollmentRepository.findByStudentId(userId).forEach(e -> {
-            accessibleCourseIds.add(e.getCourseId());
-            statusMap.put(e.getCourseId().toLowerCase(), e.getStatus() != null ? e.getStatus() : "ongoing");
-            Optional<com.edusys.entity.BatchEntity> batchOpt = batchRepository.findById(e.getBatchId());
-            if (batchOpt.isPresent()) {
-                com.edusys.entity.BatchEntity batch = batchOpt.get();
-                batchCodeMap.put(e.getCourseId().toLowerCase(), batch.getBatchName());
-            }
-        });
+        // 1. Add standard enrollments / live batch courses
+        if ("STUDENT".equalsIgnoreCase(user.getRole())) {
+            studentRepository.findById(userId).ifPresent(student -> {
+                if (student.getCurrentBatchId() != null) {
+                    batchRepository.findById(student.getCurrentBatchId()).ifPresent(batch -> {
+                        if (batch.getCourses() != null) {
+                            batch.getCourses().forEach(course -> {
+                                accessibleCourseIds.add(course.getCourseId());
+                                statusMap.put(course.getCourseId().toLowerCase(), "ongoing");
+                                batchCodeMap.put(course.getCourseId().toLowerCase(), batch.getBatchName());
+                            });
+                        }
+                    });
+                }
+            });
+        } else {
+            enrollmentRepository.findByStudentId(userId).forEach(e -> {
+                accessibleCourseIds.add(e.getCourseId());
+                statusMap.put(e.getCourseId().toLowerCase(), e.getStatus() != null ? e.getStatus() : "ongoing");
+                Optional<com.edusys.entity.BatchEntity> batchOpt = batchRepository.findById(e.getBatchId());
+                if (batchOpt.isPresent()) {
+                    com.edusys.entity.BatchEntity batch = batchOpt.get();
+                    batchCodeMap.put(e.getCourseId().toLowerCase(), batch.getBatchName());
+                }
+            });
+        }
 
         // 2. Add custom grants
         courseAccessGrantRepository.findByUserIdentifierIgnoreCase(user.getEmail()).forEach(g -> {
@@ -183,5 +246,136 @@ public class CourseServiceImpl implements CourseService {
         }
 
         return updated;
+    }
+
+    @Override
+    public List<com.edusys.model.dto.BatchDTO> getBatchesForCourse(String courseId) {
+        List<com.edusys.model.dto.BatchDTO> result = new ArrayList<>();
+        batchRepository.findAll().forEach(batch -> {
+            if (batch.getCourses() != null) {
+                boolean hasCourse = batch.getCourses().stream()
+                        .anyMatch(c -> c.getCourseId().equalsIgnoreCase(courseId));
+                if (hasCourse) {
+                    com.edusys.model.dto.BatchDTO dto = mapper.map(batch, com.edusys.model.dto.BatchDTO.class);
+                    long count = enrollmentRepository.countByBatchId(batch.getBatchId());
+                    dto.setStudentCount((int) count);
+                    result.add(dto);
+                }
+            }
+        });
+        return result;
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public void grantAccess(String courseId, String batchId, List<String> userIds) {
+        com.edusys.entity.CourseEntity course = courseRepository.findById(courseId).orElse(null);
+        com.edusys.entity.BatchEntity batch = batchRepository.findById(batchId).orElse(null);
+        if (course == null || batch == null) {
+            return;
+        }
+
+        final boolean isStandard = batch.getCourses() != null && batch.getCourses().stream()
+                .anyMatch(c -> c.getCourseId().equalsIgnoreCase(courseId));
+
+        for (String userId : userIds) {
+            userRepository.findById(userId).ifPresent(user -> {
+                if (isStandard) {
+                    return;
+                }
+
+                List<com.edusys.entity.CourseAccessGrantEntity> existing =
+                        courseAccessGrantRepository.findByUserIdentifierIgnoreCase(user.getEmail());
+                boolean alreadyGranted = existing.stream()
+                        .anyMatch(g -> g.getCourseId().equalsIgnoreCase(courseId));
+                if (alreadyGranted) {
+                    return;
+                }
+
+                com.edusys.entity.CourseAccessGrantEntity grant = com.edusys.entity.CourseAccessGrantEntity.builder()
+                        .id(java.util.UUID.randomUUID().toString())
+                        .courseId(courseId)
+                        .courseName(course.getCourseName())
+                        .batchCode(batchId)
+                        .userIdentifier(user.getEmail())
+                        .grantedAt(java.time.LocalDate.now())
+                        .status("ongoing")
+                        .build();
+                courseAccessGrantRepository.save(grant);
+            });
+        }
+    }
+
+    @Override
+    public List<com.edusys.model.dto.CourseAccessUserDTO> getCourseAccessList(String courseId, String batchId) {
+        List<com.edusys.model.dto.CourseAccessUserDTO> result = new ArrayList<>();
+        java.util.Set<String> processedUserIds = new java.util.HashSet<>();
+
+        List<com.edusys.entity.BatchEntity> standardBatches = new ArrayList<>();
+        if (batchId != null && !batchId.trim().isEmpty()) {
+            batchRepository.findById(batchId).ifPresent(batch -> {
+                if (batch.getCourses() != null && batch.getCourses().stream()
+                        .anyMatch(c -> c.getCourseId().equalsIgnoreCase(courseId))) {
+                    standardBatches.add(batch);
+                }
+            });
+        } else {
+            batchRepository.findAll().forEach(batch -> {
+                if (batch.getCourses() != null && batch.getCourses().stream()
+                        .anyMatch(c -> c.getCourseId().equalsIgnoreCase(courseId))) {
+                    standardBatches.add(batch);
+                }
+            });
+        }
+
+        for (com.edusys.entity.BatchEntity batch : standardBatches) {
+            List<com.edusys.entity.EnrollmentEntity> enrollments = enrollmentRepository.findByBatchId(batch.getBatchId());
+            for (com.edusys.entity.EnrollmentEntity enrollment : enrollments) {
+                userRepository.findById(enrollment.getStudentId()).ifPresent(user -> {
+                    if (processedUserIds.add(user.getUserId())) {
+                        result.add(com.edusys.model.dto.CourseAccessUserDTO.builder()
+                                .userId(user.getUserId())
+                                .fullName(user.getFullName())
+                                .email(user.getEmail())
+                                .batchId(batch.getBatchId())
+                                .batchName(batch.getBatchName())
+                                .accessType("Standard")
+                                .grantId(null)
+                                .grantedAt(enrollment.getEnrollDate())
+                                .build());
+                    }
+                });
+            }
+        }
+
+        List<com.edusys.entity.CourseAccessGrantEntity> grants = courseAccessGrantRepository.findByCourseId(courseId);
+        for (com.edusys.entity.CourseAccessGrantEntity grant : grants) {
+            if (batchId != null && !batchId.trim().isEmpty() && !grant.getBatchCode().equalsIgnoreCase(batchId)) {
+                continue;
+            }
+
+            userRepository.findByEmail(grant.getUserIdentifier()).ifPresent(user -> {
+                if (processedUserIds.add(user.getUserId())) {
+                    String bId = grant.getBatchCode();
+                    String bName = "Unknown Batch";
+                    com.edusys.entity.BatchEntity bEntity = batchRepository.findById(bId).orElse(null);
+                    if (bEntity != null) {
+                        bName = bEntity.getBatchName();
+                    }
+                    result.add(com.edusys.model.dto.CourseAccessUserDTO.builder()
+                            .userId(user.getUserId())
+                            .fullName(user.getFullName())
+                            .email(user.getEmail())
+                            .batchId(bId)
+                            .batchName(bName)
+                            .accessType("Custom")
+                            .grantId(grant.getId())
+                            .grantedAt(grant.getGrantedAt())
+                            .build());
+                }
+            });
+        }
+
+        return result;
     }
 }

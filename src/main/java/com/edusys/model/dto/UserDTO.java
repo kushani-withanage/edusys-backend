@@ -19,4 +19,6 @@ public class UserDTO {
     private String phone;
     private String status;
     private LocalDateTime createdAt;
+    private LocalDateTime firstLogin;
+    private LocalDateTime lastLogin;
 }

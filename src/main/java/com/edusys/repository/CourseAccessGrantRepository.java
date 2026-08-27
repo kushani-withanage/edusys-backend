@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface CourseAccessGrantRepository extends CrudRepository<CourseAccessGrantEntity, String> {
     List<CourseAccessGrantEntity> findByUserIdentifierIgnoreCase(String userIdentifier);
+    List<CourseAccessGrantEntity> findByCourseId(String courseId);
 }

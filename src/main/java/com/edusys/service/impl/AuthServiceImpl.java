@@ -74,11 +74,27 @@ public class AuthServiceImpl implements AuthService {
         UserEntity user = userRepository.findByEmail(authDTO.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("Invalid email or password."));
 
-        if (!passwordEncoder.matches(authDTO.getPassword(), user.getPassword())) {
-            throw new IllegalArgumentException("Invalid email or password.");
+        boolean isNoPasswordParent = "PARENT".equalsIgnoreCase(user.getRole()) && user.getPassword() == null;
+
+        if (!isNoPasswordParent) {
+            if (user.getPassword() == null || !passwordEncoder.matches(authDTO.getPassword(), user.getPassword())) {
+                throw new IllegalArgumentException("Invalid email or password.");
+            }
         }
 
-        String token = jwtTokenProvider.generateToken(user.getUserId(), user.getEmail(), user.getRole());
+        String token;
+        boolean mustSet = Boolean.TRUE.equals(user.getMustSetPassword()) || isNoPasswordParent;
+        if (mustSet) {
+            token = jwtTokenProvider.generateLimitedToken(user.getUserId(), user.getEmail(), user.getRole());
+        } else {
+            token = jwtTokenProvider.generateToken(user.getUserId(), user.getEmail(), user.getRole());
+        }
+
+        if (user.getFirstLogin() == null) {
+            user.setFirstLogin(LocalDateTime.now());
+        }
+        user.setLastLogin(LocalDateTime.now());
+        userRepository.save(user);
 
         return AuthResponseDTO.builder()
                 .token(token)
@@ -86,6 +102,7 @@ public class AuthServiceImpl implements AuthService {
                 .fullName(user.getFullName())
                 .email(user.getEmail())
                 .role(user.getRole())
+                .mustSetPassword(mustSet)
                 .build();
     }
 
@@ -121,5 +138,25 @@ public class AuthServiceImpl implements AuthService {
         }
         resetPassword(email, newPassword);
         resetOtpMap.remove(email);
+    }
+
+    @Override
+    public AuthResponseDTO setPassword(String userId, String newPassword) {
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found."));
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setMustSetPassword(false);
+        userRepository.save(user);
+
+        String token = jwtTokenProvider.generateToken(user.getUserId(), user.getEmail(), user.getRole());
+
+        return AuthResponseDTO.builder()
+                .token(token)
+                .userId(user.getUserId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .mustSetPassword(false)
+                .build();
     }
 }

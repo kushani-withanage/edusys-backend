@@ -11,4 +11,5 @@ public interface AuthService {
     boolean existsByEmail(String email);
     String generateResetOtp(String email);
     void resetPasswordWithOtp(String email, String otp, String newPassword);
+    AuthResponseDTO setPassword(String userId, String newPassword);
 }

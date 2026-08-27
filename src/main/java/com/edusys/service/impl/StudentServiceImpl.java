@@ -12,8 +12,17 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.edusys.repository.StudentBatchHistoryRepository;
+import com.edusys.entity.StudentBatchHistoryEntity;
+import java.time.LocalDate;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 @Service
 public class StudentServiceImpl implements StudentService {
@@ -25,10 +34,25 @@ public class StudentServiceImpl implements StudentService {
     private UserRepository userRepository;
 
     @Autowired
+    private StudentBatchHistoryRepository studentBatchHistoryRepository;
+
+    @Autowired
+    private com.edusys.repository.ParentRepository parentRepository;
+
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
+    @Autowired
     private ModelMapper mapper;
 
     @Autowired
     private IdGenerator idGenerator;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private StudentDTO convertToDTO(StudentEntity entity) {
         if (entity == null) return null;
@@ -40,16 +64,116 @@ public class StudentServiceImpl implements StudentService {
             dto.setStatus(user.getStatus());
             dto.setCreatedAt(user.getCreatedAt());
         });
+        try {
+            String sql = "SELECT u.full_name AS guardian_name, u.email AS guardian_email FROM users u JOIN (SELECT student_id, parent_id FROM student_parent UNION SELECT student_id, parent_id FROM parent_student_links) sp ON u.user_id = sp.parent_id WHERE sp.student_id = ?";
+            List<java.util.Map<String, Object>> parentRows = jdbcTemplate.queryForList(sql, entity.getStudentId());
+            if (!parentRows.isEmpty()) {
+                java.util.Map<String, Object> parentRow = parentRows.get(0);
+                String name = (String) parentRow.get("guardian_name");
+                if (name == null) name = (String) parentRow.get("GUARDIAN_NAME");
+                String email = (String) parentRow.get("guardian_email");
+                if (email == null) email = (String) parentRow.get("GUARDIAN_EMAIL");
+                
+                dto.setGuardianName(name);
+                dto.setGuardianEmail(email);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return dto;
     }
 
     @Override
+    @Transactional
     public StudentDTO create(StudentDTO studentDTO) {
-        if (studentDTO.getStudentId() == null || studentDTO.getStudentId().trim().isEmpty()) {
-            studentDTO.setStudentId(idGenerator.generateId(EntityPrefix.STUDENT, studentRepository.count()));
+        String studentId = studentDTO.getStudentId();
+        if (studentId == null || studentId.trim().isEmpty()) {
+            studentId = idGenerator.generateId(EntityPrefix.USER, userRepository.count());
+            studentDTO.setStudentId(studentId);
         }
+
+        // Ensure student UserEntity exists in the same transaction
+        if (!userRepository.existsById(studentId)) {
+            if (userRepository.existsByEmail(studentDTO.getEmail())) {
+                throw new IllegalArgumentException("Email is already registered: " + studentDTO.getEmail());
+            }
+            UserEntity user = new UserEntity();
+            user.setUserId(studentId);
+            user.setFullName(studentDTO.getFullName());
+            user.setEmail(studentDTO.getEmail());
+            user.setPhone(studentDTO.getPhone() != null && !studentDTO.getPhone().trim().isEmpty() 
+                    ? studentDTO.getPhone() : "+94770000000");
+            user.setRole("STUDENT");
+            user.setStatus("ACTIVE");
+            user.setCreatedAt(java.time.LocalDateTime.now());
+            user.setPassword(passwordEncoder.encode("password123")); // Default temporary password
+            user.setMustSetPassword(true);
+            userRepository.save(user);
+        }
+
         StudentEntity entity = mapper.map(studentDTO, StudentEntity.class);
         StudentEntity saved = studentRepository.save(entity);
+
+        // Open first history row
+        if (saved.getCurrentBatchId() != null && !saved.getCurrentBatchId().trim().isEmpty()) {
+            StudentBatchHistoryEntity history = StudentBatchHistoryEntity.builder()
+                    .id(java.util.UUID.randomUUID().toString())
+                    .studentId(saved.getStudentId())
+                    .batchId(saved.getCurrentBatchId())
+                    .startDate(LocalDate.now())
+                    .endDate(null)
+                    .build();
+            studentBatchHistoryRepository.save(history);
+        }
+
+        // Process Guardian Parent link/creation
+        if (studentDTO.getGuardianEmail() != null && !studentDTO.getGuardianEmail().trim().isEmpty()) {
+            String parentEmail = studentDTO.getGuardianEmail().trim();
+            Optional<UserEntity> parentUserOpt = userRepository.findByEmail(parentEmail);
+            String parentId;
+            if (parentUserOpt.isPresent()) {
+                parentId = parentUserOpt.get().getUserId();
+            } else {
+                parentId = idGenerator.generateId(EntityPrefix.PARENT, userRepository.count());
+                UserEntity parentUser = new UserEntity();
+                parentUser.setUserId(parentId);
+                parentUser.setFullName(studentDTO.getGuardianName());
+                parentUser.setEmail(parentEmail);
+                parentUser.setRole("PARENT");
+                parentUser.setStatus("ACTIVE");
+                parentUser.setPhone("+94770000000");
+                parentUser.setCreatedAt(java.time.LocalDateTime.now());
+                parentUser.setPassword(null);
+                parentUser.setMustSetPassword(true);
+                userRepository.save(parentUser);
+
+                com.edusys.entity.ParentEntity parentEntity = new com.edusys.entity.ParentEntity();
+                parentEntity.setParentId(parentId);
+                parentEntity.setOccupation("Guardian");
+                parentRepository.save(parentEntity);
+            }
+
+            entityManager.flush();
+            
+            Integer spExistsCount = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM student_parent WHERE parent_id = ? AND student_id = ?",
+                    Integer.class, parentId, saved.getStudentId());
+            if (spExistsCount == null || spExistsCount == 0) {
+                jdbcTemplate.update("INSERT INTO student_parent (student_id, parent_id) VALUES (?, ?)", 
+                        saved.getStudentId(), parentId);
+            }
+
+            Integer existsCount = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM parent_student_links WHERE parent_id = ? AND student_id = ?",
+                    Integer.class, parentId, saved.getStudentId());
+            if (existsCount == null || existsCount == 0) {
+                String linkId = idGenerator.generateId(EntityPrefix.PARENT_STUDENT_LINK, 
+                        jdbcTemplate.queryForObject("SELECT COUNT(*) FROM parent_student_links", Long.class));
+                jdbcTemplate.update("INSERT INTO parent_student_links (link_id, parent_id, student_id, relationship_type, linked_date) VALUES (?, ?, ?, ?, ?)",
+                        linkId, parentId, saved.getStudentId(), "Guardian", java.time.LocalDate.now());
+            }
+        }
+
         return convertToDTO(saved);
     }
 
@@ -83,6 +207,52 @@ public class StudentServiceImpl implements StudentService {
             if (studentDTO.getStatus() != null) user.setStatus(studentDTO.getStatus());
             userRepository.save(user);
         });
+
+        // Sync Guardian Parent Link
+        if (studentDTO.getGuardianEmail() != null && !studentDTO.getGuardianEmail().trim().isEmpty()) {
+            String parentEmail = studentDTO.getGuardianEmail().trim();
+            Optional<UserEntity> parentUserOpt = userRepository.findByEmail(parentEmail);
+            String parentId;
+            if (parentUserOpt.isPresent()) {
+                parentId = parentUserOpt.get().getUserId();
+            } else {
+                parentId = idGenerator.generateId(EntityPrefix.PARENT, userRepository.count());
+                UserEntity parentUser = new UserEntity();
+                parentUser.setUserId(parentId);
+                parentUser.setFullName(studentDTO.getGuardianName());
+                parentUser.setEmail(parentEmail);
+                parentUser.setRole("PARENT");
+                parentUser.setStatus("ACTIVE");
+                parentUser.setPhone("+94770000000");
+                parentUser.setCreatedAt(java.time.LocalDateTime.now());
+                parentUser.setPassword(null);
+                parentUser.setMustSetPassword(true);
+                userRepository.save(parentUser);
+
+                com.edusys.entity.ParentEntity parentEntity = new com.edusys.entity.ParentEntity();
+                parentEntity.setParentId(parentId);
+                parentEntity.setOccupation("Guardian");
+                parentRepository.save(parentEntity);
+            }
+
+            Integer spExistsCount = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM student_parent WHERE parent_id = ? AND student_id = ?",
+                    Integer.class, parentId, id);
+            if (spExistsCount == null || spExistsCount == 0) {
+                jdbcTemplate.update("INSERT INTO student_parent (student_id, parent_id) VALUES (?, ?)", 
+                        id, parentId);
+            }
+
+            Integer existsCount = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM parent_student_links WHERE parent_id = ? AND student_id = ?",
+                    Integer.class, parentId, id);
+            if (existsCount == null || existsCount == 0) {
+                String linkId = idGenerator.generateId(EntityPrefix.PARENT_STUDENT_LINK, 
+                        jdbcTemplate.queryForObject("SELECT COUNT(*) FROM parent_student_links", Long.class));
+                jdbcTemplate.update("INSERT INTO parent_student_links (link_id, parent_id, student_id, relationship_type, linked_date) VALUES (?, ?, ?, ?, ?)",
+                        linkId, parentId, id, "Guardian", java.time.LocalDate.now());
+            }
+        }
         
         return convertToDTO(updated);
     }
@@ -95,5 +265,42 @@ public class StudentServiceImpl implements StudentService {
             return true;
         }
         return false;
+    }
+
+    @Override
+    @Transactional
+    public boolean transferBatch(String id, String batchId) {
+        Optional<StudentEntity> studentOpt = studentRepository.findById(id);
+        if (!studentOpt.isPresent()) {
+            return false;
+        }
+        StudentEntity student = studentOpt.get();
+        String oldBatchId = student.getCurrentBatchId();
+
+        if (batchId.equals(oldBatchId)) {
+            return true;
+        }
+
+        // Close old batch history row if exists
+        studentBatchHistoryRepository.findByStudentIdAndEndDateIsNull(id).ifPresent(history -> {
+            history.setEndDate(LocalDate.now());
+            studentBatchHistoryRepository.save(history);
+        });
+
+        // Open new history row
+        StudentBatchHistoryEntity newHistory = StudentBatchHistoryEntity.builder()
+                .id(java.util.UUID.randomUUID().toString())
+                .studentId(id)
+                .batchId(batchId)
+                .startDate(LocalDate.now())
+                .endDate(null)
+                .build();
+        studentBatchHistoryRepository.save(newHistory);
+
+        // Update current batch ID
+        student.setCurrentBatchId(batchId);
+        studentRepository.save(student);
+
+        return true;
     }
 }

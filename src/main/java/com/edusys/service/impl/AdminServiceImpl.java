@@ -70,7 +70,13 @@ public class AdminServiceImpl implements AdminService {
     @Override
     public AdminDTO update(String id, AdminDTO adminDTO) {
         if (!adminRepository.existsById(id)) {
-            return null;
+            if (!userRepository.existsById(id)) {
+                return null;
+            }
+            AdminEntity newAdmin = new AdminEntity();
+            newAdmin.setAdminId(id);
+            newAdmin.setDepartment(adminDTO.getDepartment() != null ? adminDTO.getDepartment() : "Management");
+            adminRepository.save(newAdmin);
         }
         adminDTO.setAdminId(id);
         AdminEntity entity = mapper.map(adminDTO, AdminEntity.class);

@@ -4,13 +4,11 @@ import com.edusys.model.dto.DashboardStatsDTO;
 import com.edusys.repository.StudentRepository;
 import com.edusys.repository.TeacherRepository;
 import com.edusys.repository.BatchRepository;
-import com.edusys.repository.FeeRecordRepository;
 import com.edusys.service.DashboardService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.time.temporal.TemporalAdjusters;
 
 @Service
 public class DashboardServiceImpl implements DashboardService {
@@ -25,7 +23,7 @@ public class DashboardServiceImpl implements DashboardService {
     private BatchRepository batchRepository;
 
     @Autowired
-    private FeeRecordRepository feeRecordRepository;
+    private com.edusys.repository.FeeRecordRepository feeRecordRepository;
 
     @Override
     public long getTotalStudents() {
@@ -45,18 +43,15 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     public long getNewAdmissionIntake() {
-        LocalDate latestDate = studentRepository.findLatestEnrollmentDate();
-        if (latestDate == null) {
-            return 0L;
-        }
-        LocalDate start = latestDate.withDayOfMonth(1);
-        LocalDate end = latestDate.with(TemporalAdjusters.lastDayOfMonth());
+        int currentYear = LocalDate.now().getYear();
+        LocalDate start = LocalDate.of(currentYear, 1, 1);
+        LocalDate end = LocalDate.of(currentYear, 12, 31);
         return studentRepository.countByEnrollmentDateBetween(start, end);
     }
 
     @Override
     public long getOverduePaymentsCount() {
-        return feeRecordRepository.countByStatus("UNPAID");
+        return feeRecordRepository.countByStatusNotAndDueDateLessThan("PAID", LocalDate.now());
     }
 
     @Override

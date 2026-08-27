@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -20,9 +21,9 @@ public class CareerTaskDTO {
     private String description;
     private String instructions;
     private Integer pointsValue;
-    private String submissionType; // LINK, IMAGE, PDF, FILE, TEXT
     private Boolean isActive;
     private String createdBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private List<String> batchIds;
 }

@@ -18,3 +18,8 @@ spring:
     user: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
     baseline-on-migrate: true
+
+server:
+  error:
+    include-stacktrace: never
+    include-message: always

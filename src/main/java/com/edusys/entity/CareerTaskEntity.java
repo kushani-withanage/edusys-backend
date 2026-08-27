@@ -1,17 +1,13 @@
 package com.edusys.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "career_task")
@@ -35,9 +31,6 @@ public class CareerTaskEntity {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "submission_type", nullable = false, length = 20)
-    private String submissionType; // LINK, IMAGE, PDF, FILE
-
     @Column(name = "points_value", nullable = false)
     private Integer pointsValue;
 
@@ -50,4 +43,12 @@ public class CareerTaskEntity {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "career_task_batch",
+        joinColumns = @JoinColumn(name = "task_id"),
+        inverseJoinColumns = @JoinColumn(name = "batch_id")
+    )
+    private List<BatchEntity> batches;
 }

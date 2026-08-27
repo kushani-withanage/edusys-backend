@@ -54,4 +54,38 @@ public class UserController {
         }
         return ResponseEntity.notFound().build();
     }
+
+    @Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private com.edusys.repository.UserRepository userRepository;
+
+    @PutMapping("/change-password")
+    public ResponseEntity<?> changePassword(@RequestBody java.util.Map<String, String> payload) {
+        String userId = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentPassword = payload.get("currentPassword");
+        String newPassword = payload.get("newPassword");
+
+        if (currentPassword == null || newPassword == null || newPassword.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Current password and new password are required.");
+        }
+
+        java.util.Optional<com.edusys.entity.UserEntity> userOpt = userRepository.findById(userId);
+        if (!userOpt.isPresent()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        com.edusys.entity.UserEntity user = userOpt.get();
+        if (user.getPassword() != null) {
+            if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Incorrect current password.");
+            }
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        return ResponseEntity.ok(java.util.Map.of("message", "Password updated successfully."));
+    }
 }

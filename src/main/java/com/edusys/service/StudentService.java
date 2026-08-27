@@ -10,4 +10,5 @@ public interface StudentService {
     List<StudentDTO> getAll();
     StudentDTO update(String id, StudentDTO studentDTO);
     boolean delete(String id);
+    boolean transferBatch(String id, String batchId);
 }

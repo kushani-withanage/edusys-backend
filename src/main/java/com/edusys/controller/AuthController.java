@@ -38,6 +38,21 @@ public class AuthController {
         }
     }
 
+    @PostMapping("/set-password")
+    public ResponseEntity<?> setPassword(@RequestBody java.util.Map<String, String> request) {
+        String newPassword = request.get("newPassword");
+        if (newPassword == null || newPassword.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("newPassword is required.");
+        }
+        try {
+            String userId = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+            AuthResponseDTO response = authService.setPassword(userId, newPassword);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
         try {

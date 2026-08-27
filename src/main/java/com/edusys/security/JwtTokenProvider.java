@@ -64,4 +64,32 @@ public class JwtTokenProvider {
             return false;
         }
     }
+
+    public String generateLimitedToken(String userId, String email, String role) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + 600000); // 10 minutes
+
+        return Jwts.builder()
+                .subject(userId)
+                .claim("email", email)
+                .claim("role", role)
+                .claim("scope", "SET_PASSWORD")
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(key)
+                .compact();
+    }
+
+    public String getScopeFromToken(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(key)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+            return claims.get("scope", String.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
 }

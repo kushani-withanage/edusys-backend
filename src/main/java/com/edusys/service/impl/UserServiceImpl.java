@@ -85,11 +85,9 @@ public class UserServiceImpl implements UserService {
         jdbcTemplate.update("DELETE FROM assignment_submissions WHERE student_id = ?", id);
         jdbcTemplate.update("DELETE FROM parent_student_links WHERE student_id = ?", id);
         
-        // Career system cascading triggers (level progress, ledger, overrides, submissions)
-        jdbcTemplate.update("DELETE FROM career_level_overrides WHERE student_id = ?", id);
+        // Career system cascading triggers (level progress, submissions)
         jdbcTemplate.update("DELETE FROM student_career_progress WHERE student_id = ?", id);
-        jdbcTemplate.update("DELETE FROM career_submissions WHERE student_id = ?", id);
-        jdbcTemplate.update("DELETE FROM career_points_ledger WHERE student_id = ?", id);
+        jdbcTemplate.update("DELETE FROM career_submission WHERE student_id = ?", id);
         
         jdbcTemplate.update("DELETE FROM students WHERE student_id = ?", id);
 
@@ -105,7 +103,6 @@ public class UserServiceImpl implements UserService {
         // 3. Clean up other user roles
         jdbcTemplate.update("DELETE FROM parent_student_links WHERE parent_id = ?", id);
         jdbcTemplate.update("DELETE FROM parents WHERE parent_id = ?", id);
-        jdbcTemplate.update("DELETE FROM evaluations WHERE reviewer_id = ?", id);
         jdbcTemplate.update("DELETE FROM reviewers WHERE reviewer_id = ?", id);
         jdbcTemplate.update("DELETE FROM admins WHERE admin_id = ?", id);
 

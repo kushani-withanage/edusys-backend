@@ -15,4 +15,7 @@ public interface CareerTaskRepository extends CrudRepository<CareerTaskEntity, S
 
     @Query("SELECT t FROM CareerTaskEntity t WHERE t.level.id = :levelId AND t.isActive = :isActive")
     List<CareerTaskEntity> findByLevelIdAndIsActive(@Param("levelId") String levelId, @Param("isActive") Boolean isActive);
+
+    @Query("SELECT t FROM CareerTaskEntity t JOIN t.batches b WHERE b.batchId = :batchId")
+    List<CareerTaskEntity> findByBatchId(@Param("batchId") String batchId);
 }

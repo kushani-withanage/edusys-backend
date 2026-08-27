@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 
 import org.springframework.data.jpa.repository.Query;
 import java.time.LocalDate;
+import java.util.List;
 
 @Repository
 public interface StudentRepository extends CrudRepository<StudentEntity, String> {
@@ -13,4 +14,6 @@ public interface StudentRepository extends CrudRepository<StudentEntity, String>
     LocalDate findLatestEnrollmentDate();
 
     long countByEnrollmentDateBetween(LocalDate start, LocalDate end);
+
+    List<StudentEntity> findByCurrentBatchId(String currentBatchId);
 }
