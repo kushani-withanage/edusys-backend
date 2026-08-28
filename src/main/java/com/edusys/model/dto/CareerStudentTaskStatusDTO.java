@@ -19,6 +19,7 @@ public class CareerStudentTaskStatusDTO {
     private Integer pointsValue;
     private String studentId;
     private String studentName;
+    private String regNo;
     private String status; // NOT_STARTED, IN_PROGRESS, COMPLETED
     private Integer pointsAwarded;
     private String markedBy;

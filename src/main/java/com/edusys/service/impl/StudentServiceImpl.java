@@ -122,6 +122,9 @@ public class StudentServiceImpl implements StudentService {
         }
 
         StudentEntity entity = mapper.map(studentDTO, StudentEntity.class);
+        if (entity.getRegNo() == null || entity.getRegNo().trim().isEmpty()) {
+            entity.setRegNo(generateRegistrationNumber(entity.getCurrentBatchId()));
+        }
         StudentEntity saved = studentRepository.save(entity);
 
         // Open first history row
@@ -217,6 +220,14 @@ public class StudentServiceImpl implements StudentService {
         }
         studentDTO.setStudentId(id);
         StudentEntity entity = mapper.map(studentDTO, StudentEntity.class);
+        studentRepository.findById(id).ifPresent(oldStudent -> {
+            if (entity.getRegNo() == null || entity.getRegNo().trim().isEmpty()) {
+                entity.setRegNo(oldStudent.getRegNo());
+            }
+        });
+        if (entity.getRegNo() == null || entity.getRegNo().trim().isEmpty()) {
+            entity.setRegNo(generateRegistrationNumber(entity.getCurrentBatchId()));
+        }
         StudentEntity updated = studentRepository.save(entity);
         
         userRepository.findById(id).ifPresent(user -> {
@@ -326,5 +337,65 @@ public class StudentServiceImpl implements StudentService {
         studentRepository.save(student);
 
         return true;
+    }
+
+    private String generateRegistrationNumber(String batchId) {
+        String year2 = String.valueOf(java.time.LocalDate.now().getYear() % 100);
+        String batchNum = "000";
+        int maxSeq = 0;
+        String existingYear2 = null;
+        String existingBatchNum = null;
+
+        if (batchId != null && !batchId.trim().isEmpty()) {
+            Optional<com.edusys.entity.BatchEntity> batchOpt = batchRepository.findById(batchId);
+            if (batchOpt.isPresent()) {
+                com.edusys.entity.BatchEntity batch = batchOpt.get();
+                String batchName = batch.getBatchName();
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\d+").matcher(batchName);
+                if (m.find()) {
+                    batchNum = m.group();
+                    if (batchNum.length() > 3) {
+                        batchNum = batchNum.substring(batchNum.length() - 3);
+                    } else if (batchNum.length() < 3) {
+                        batchNum = String.format("%03d", Integer.parseInt(batchNum));
+                    }
+                }
+                if (batch.getStartDate() != null) {
+                    year2 = String.format("%02d", batch.getStartDate().getYear() % 100);
+                }
+            }
+
+            // Find last student number in that batch
+            List<StudentEntity> batchStudents = studentRepository.findByCurrentBatchId(batchId);
+            for (StudentEntity s : batchStudents) {
+                String reg = s.getRegNo();
+                if (reg != null && reg.length() == 11 && reg.startsWith("pr")) {
+                    try {
+                        String yr = reg.substring(2, 4);
+                        String btn = reg.substring(4, 7);
+                        String last4 = reg.substring(7);
+                        int val = Integer.parseInt(last4);
+                        if (val > maxSeq) {
+                            maxSeq = val;
+                            existingYear2 = yr;
+                            existingBatchNum = btn;
+                        }
+                    } catch (Exception e) {
+                        // ignore non-numeric sequence
+                    }
+                }
+            }
+        }
+
+        if (existingYear2 != null) {
+            year2 = existingYear2;
+        }
+        if (existingBatchNum != null) {
+            batchNum = existingBatchNum;
+        }
+
+        int nextSeq = maxSeq + 1;
+        String serial = String.format("%04d", nextSeq);
+        return "pr" + year2 + batchNum + serial;
     }
 }

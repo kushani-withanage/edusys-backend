@@ -70,7 +70,8 @@ public class CareerMarkingServiceImpl implements CareerMarkingService {
                     .taskDescription(task.getDescription())
                     .pointsValue(task.getPointsValue())
                     .studentId(student.getStudentId())
-                    .studentName(studentName);
+                    .studentName(studentName)
+                    .regNo(student.getRegNo());
 
             if (statusEntity != null) {
                 builder.id(statusEntity.getId())
@@ -195,6 +196,7 @@ public class CareerMarkingServiceImpl implements CareerMarkingService {
                 .pointsValue(task.getPointsValue())
                 .studentId(studentId)
                 .studentName(studentName)
+                .regNo(student.getRegNo())
                 .status(savedStatus.getStatus())
                 .pointsAwarded(savedStatus.getPointsAwarded())
                 .markedBy(markerUserId)
