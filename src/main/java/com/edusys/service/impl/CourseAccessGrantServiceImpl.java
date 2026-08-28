@@ -23,8 +23,21 @@ public class CourseAccessGrantServiceImpl implements CourseAccessGrantService {
     @Autowired
     private ModelMapper mapper;
 
+    @Autowired
+    private com.edusys.repository.BatchRepository batchRepository;
+
     @Override
     public CourseAccessGrantDTO create(CourseAccessGrantDTO dto) {
+        if (dto.getBatchCode() != null) {
+            batchRepository.findById(dto.getBatchCode()).ifPresent(batch -> {
+                if ("Finished".equalsIgnoreCase(batch.getStatus())) {
+                    throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, 
+                        "Cannot grant course access for a finished batch"
+                    );
+                }
+            });
+        }
         if (dto.getId() == null || dto.getId().trim().isEmpty()) {
             dto.setId(UUID.randomUUID().toString());
         }

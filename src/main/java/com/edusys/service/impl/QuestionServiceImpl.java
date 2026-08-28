@@ -43,7 +43,12 @@ public class QuestionServiceImpl implements QuestionService {
     @Transactional
     public QuestionDTO create(QuestionDTO dto) {
         if (dto.getId() == null || dto.getId().trim().isEmpty()) {
-            dto.setId(idGenerator.generateId(EntityPrefix.QUESTION, questionRepository.count()));
+            long count = questionRepository.count();
+            String generatedId;
+            do {
+                generatedId = idGenerator.generateId(EntityPrefix.QUESTION, count++);
+            } while (questionRepository.existsById(generatedId));
+            dto.setId(generatedId);
         }
         dto.setStatus("ACTIVE");
         dto.setCreatedAt(LocalDateTime.now());
@@ -64,9 +69,14 @@ public class QuestionServiceImpl implements QuestionService {
         // Map options
         if (dto.getOptions() != null) {
             List<QuestionOptionEntity> optionEntities = new ArrayList<>();
+            long baseOptionCount = questionOptionRepository.count();
             for (QuestionOptionDTO optDto : dto.getOptions()) {
                 if (optDto.getId() == null || optDto.getId().trim().isEmpty()) {
-                    optDto.setId(idGenerator.generateId(EntityPrefix.QUESTION_OPTION, questionOptionRepository.count() + optionEntities.size()));
+                    String generatedOptId;
+                    do {
+                        generatedOptId = idGenerator.generateId(EntityPrefix.QUESTION_OPTION, baseOptionCount++);
+                    } while (questionOptionRepository.existsById(generatedOptId));
+                    optDto.setId(generatedOptId);
                 }
                 QuestionOptionEntity optEntity = mapper.map(optDto, QuestionOptionEntity.class);
                 optEntity.setQuestion(entity);
@@ -125,9 +135,14 @@ public class QuestionServiceImpl implements QuestionService {
         }
 
         if (dto.getOptions() != null) {
+            long baseOptionCount = questionOptionRepository.count();
             for (QuestionOptionDTO optDto : dto.getOptions()) {
                 if (optDto.getId() == null || optDto.getId().trim().isEmpty()) {
-                    optDto.setId(idGenerator.generateId(EntityPrefix.QUESTION_OPTION, questionOptionRepository.count() + existing.getOptions().size()));
+                    String generatedOptId;
+                    do {
+                        generatedOptId = idGenerator.generateId(EntityPrefix.QUESTION_OPTION, baseOptionCount++);
+                    } while (questionOptionRepository.existsById(generatedOptId));
+                    optDto.setId(generatedOptId);
                 }
                 QuestionOptionEntity optEntity = mapper.map(optDto, QuestionOptionEntity.class);
                 optEntity.setQuestion(existing);

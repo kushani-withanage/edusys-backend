@@ -25,8 +25,21 @@ public class EnrollmentServiceImpl implements EnrollmentService {
     @Autowired
     private IdGenerator idGenerator;
 
+    @Autowired
+    private com.edusys.repository.BatchRepository batchRepository;
+
     @Override
     public EnrollmentDTO create(EnrollmentDTO enrollmentDTO) {
+        if (enrollmentDTO.getBatchId() != null) {
+            batchRepository.findById(enrollmentDTO.getBatchId()).ifPresent(batch -> {
+                if ("Finished".equalsIgnoreCase(batch.getStatus())) {
+                    throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, 
+                        "Cannot enroll students in a finished batch"
+                    );
+                }
+            });
+        }
         if (enrollmentDTO.getEnrollmentId() == null || enrollmentDTO.getEnrollmentId().trim().isEmpty()) {
             enrollmentDTO.setEnrollmentId(idGenerator.generateId(EntityPrefix.ENROLLMENT, enrollmentRepository.count()));
         }

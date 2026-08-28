@@ -87,10 +87,43 @@ public class StudentExamServiceImpl implements StudentExamService {
         }
 
         // Sanitize for SQL IN query
-        List<String> bIds = batchIds.isEmpty() ? Collections.singletonList("N/A") : batchIds;
-        List<String> cIds = courseIds.isEmpty() ? Collections.singletonList("N/A") : courseIds;
-
-        List<ExamEntity> exams = examRepository.findAvailableExams("PUBLISHED", bIds, cIds);
+        List<ExamEntity> publishedExams = examRepository.findByStatus("PUBLISHED");
+        List<ExamEntity> exams = new ArrayList<>();
+        for (ExamEntity exam : publishedExams) {
+            boolean matches = false;
+            if (exam.getAudiences() != null) {
+                for (ExamAudienceEntity a : exam.getAudiences()) {
+                    if ("BATCH".equalsIgnoreCase(a.getTargetType())) {
+                        if (batchIds.contains(a.getTargetId())) {
+                            matches = true;
+                            break;
+                        }
+                    } else if ("MODULE".equalsIgnoreCase(a.getTargetType())) {
+                        String audCourseId = a.getTargetId();
+                        String audBatchId = null;
+                        if (a.getTargetId() != null && a.getTargetId().contains("@")) {
+                            String[] parts = a.getTargetId().split("@");
+                            audCourseId = parts[0];
+                            audBatchId = parts[1];
+                        }
+                        if (audBatchId != null) {
+                            if (batchIds.contains(audBatchId) && courseIds.contains(audCourseId)) {
+                                matches = true;
+                                break;
+                            }
+                        } else {
+                            if (courseIds.contains(audCourseId)) {
+                                matches = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            if (matches) {
+                exams.add(exam);
+            }
+        }
         LocalDateTime now = LocalDateTime.now();
 
         List<Map<String, Object>> result = new ArrayList<>();
@@ -161,6 +194,25 @@ public class StudentExamServiceImpl implements StudentExamService {
             map.put("studentStatus", status);
             map.put("activeAttemptId", activeAttemptId);
             map.put("score", latestScore);
+            map.put("courseId", exam.getCourseId());
+
+            boolean hasModuleTarget = false;
+            List<String> targetedCourseIds = new ArrayList<>();
+            if (exam.getAudiences() != null) {
+                for (ExamAudienceEntity a : exam.getAudiences()) {
+                    if ("MODULE".equalsIgnoreCase(a.getTargetType())) {
+                        hasModuleTarget = true;
+                        String audCourseId = a.getTargetId();
+                        if (a.getTargetId() != null && a.getTargetId().contains("@")) {
+                            audCourseId = a.getTargetId().split("@")[0];
+                        }
+                        targetedCourseIds.add(audCourseId);
+                    }
+                }
+            }
+            map.put("isModuleTargeted", hasModuleTarget);
+            map.put("targetedCourseIds", targetedCourseIds);
+
             result.add(map);
         }
 

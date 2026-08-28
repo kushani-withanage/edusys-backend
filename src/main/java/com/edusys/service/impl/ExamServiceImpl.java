@@ -48,6 +48,9 @@ public class ExamServiceImpl implements ExamService {
     @Autowired
     private IdGenerator idGenerator;
 
+    @Autowired
+    private BatchRepository batchRepository;
+
     @Override
     @Transactional
     public ExamDTO create(ExamDTO dto) {
@@ -62,7 +65,12 @@ public class ExamServiceImpl implements ExamService {
         dto.setStatus("DRAFT");
         dto.setCreatedAt(LocalDateTime.now());
 
+        validateAudiences(dto.getAudiences());
+
         ExamEntity entity = mapper.map(dto, ExamEntity.class);
+        if (entity.getCourseId() == null || entity.getCourseId().trim().isEmpty() || "ALL".equalsIgnoreCase(entity.getCourseId().trim())) {
+            entity.setCourseId(null);
+        }
         entity.setExamQuestions(new ArrayList<>());
         entity.setAudiences(new ArrayList<>());
 
@@ -122,9 +130,15 @@ public class ExamServiceImpl implements ExamService {
             throw new IllegalStateException("Only exams in DRAFT status can be modified.");
         }
 
+        validateAudiences(dto.getAudiences());
+
         existing.setTitle(dto.getTitle());
         existing.setDescription(dto.getDescription());
-        existing.setCourseId(dto.getCourseId());
+        if (dto.getCourseId() == null || dto.getCourseId().trim().isEmpty() || "ALL".equalsIgnoreCase(dto.getCourseId().trim())) {
+            existing.setCourseId(null);
+        } else {
+            existing.setCourseId(dto.getCourseId());
+        }
         existing.setStartTime(dto.getStartTime());
         existing.setEndTime(dto.getEndTime());
         existing.setDurationMinutes(dto.getDurationMinutes());
@@ -375,5 +389,27 @@ public class ExamServiceImpl implements ExamService {
         }
 
         return dto;
+    }
+
+    private void validateAudiences(List<ExamAudienceDTO> audiences) {
+        if (audiences == null) return;
+        for (ExamAudienceDTO aud : audiences) {
+            if ("BATCH".equalsIgnoreCase(aud.getTargetType())) {
+                BatchEntity batch = batchRepository.findById(aud.getTargetId()).orElse(null);
+                if (batch != null && "FINISHED".equalsIgnoreCase(batch.getStatus())) {
+                    throw new IllegalStateException("Cannot add audience target for finished batch: " + batch.getBatchName());
+                }
+            } else if ("MODULE".equalsIgnoreCase(aud.getTargetType())) {
+                String targetId = aud.getTargetId();
+                if (targetId != null && targetId.contains("@")) {
+                    String[] parts = targetId.split("@");
+                    String batchId = parts[1];
+                    BatchEntity batch = batchRepository.findById(batchId).orElse(null);
+                    if (batch != null && "FINISHED".equalsIgnoreCase(batch.getStatus())) {
+                        throw new IllegalStateException("Cannot add module target for finished batch: " + batch.getBatchName());
+                    }
+                }
+            }
+        }
     }
 }

@@ -53,11 +53,10 @@ public class BatchServiceImpl implements BatchService {
         Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM students WHERE current_batch_id = ?", Long.class, entity.getBatchId());
         if (count == null) count = 0L;
         dto.setStudentCount(count.intValue());
-        if (entity.getCourses() != null) {
-            List<CourseDTO> courseDTOs = new ArrayList<>();
-            entity.getCourses().forEach(c -> courseDTOs.add(mapper.map(c, CourseDTO.class)));
-            dto.setCourses(courseDTOs);
-        }
+        
+        // Resolve all courses for this batch, including direct associations, access grants, and active enrollments
+        dto.setCourses(getCoursesForBatch(entity.getBatchId()));
+        
         return dto;
     }
 

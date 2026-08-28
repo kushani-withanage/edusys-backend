@@ -54,6 +54,9 @@ public class StudentServiceImpl implements StudentService {
     @PersistenceContext
     private EntityManager entityManager;
 
+    @Autowired
+    private com.edusys.repository.BatchRepository batchRepository;
+
     private StudentDTO convertToDTO(StudentEntity entity) {
         if (entity == null) return null;
         StudentDTO dto = mapper.map(entity, StudentDTO.class);
@@ -86,6 +89,13 @@ public class StudentServiceImpl implements StudentService {
     @Override
     @Transactional
     public StudentDTO create(StudentDTO studentDTO) {
+        if (studentDTO.getCurrentBatchId() != null && !studentDTO.getCurrentBatchId().trim().isEmpty()) {
+            batchRepository.findById(studentDTO.getCurrentBatchId()).ifPresent(batch -> {
+                if ("Finished".equalsIgnoreCase(batch.getStatus())) {
+                    throw new IllegalArgumentException("Cannot register student into a finished batch: " + batch.getBatchName());
+                }
+            });
+        }
         String studentId = studentDTO.getStudentId();
         if (studentId == null || studentId.trim().isEmpty()) {
             studentId = idGenerator.generateId(EntityPrefix.USER, userRepository.count());
@@ -196,6 +206,15 @@ public class StudentServiceImpl implements StudentService {
         if (!studentRepository.existsById(id)) {
             return null;
         }
+        if (studentDTO.getCurrentBatchId() != null && !studentDTO.getCurrentBatchId().trim().isEmpty()) {
+            batchRepository.findById(studentDTO.getCurrentBatchId()).ifPresent(batch -> {
+                studentRepository.findById(id).ifPresent(oldStudent -> {
+                    if (!studentDTO.getCurrentBatchId().equalsIgnoreCase(oldStudent.getCurrentBatchId()) && "Finished".equalsIgnoreCase(batch.getStatus())) {
+                        throw new IllegalArgumentException("Cannot update student to a finished batch: " + batch.getBatchName());
+                    }
+                });
+            });
+        }
         studentDTO.setStudentId(id);
         StudentEntity entity = mapper.map(studentDTO, StudentEntity.class);
         StudentEntity updated = studentRepository.save(entity);
@@ -274,6 +293,11 @@ public class StudentServiceImpl implements StudentService {
         if (!studentOpt.isPresent()) {
             return false;
         }
+        batchRepository.findById(batchId).ifPresent(batch -> {
+            if ("Finished".equalsIgnoreCase(batch.getStatus())) {
+                throw new IllegalArgumentException("Cannot transfer student to a finished batch: " + batch.getBatchName());
+            }
+        });
         StudentEntity student = studentOpt.get();
         String oldBatchId = student.getCurrentBatchId();
 

@@ -31,7 +31,8 @@ public enum EntityPrefix {
     CAREER_SUBMISSION("csb"),
     EVALUATION("evl"),
     CAREER_LEVEL("lvl"),
-    CAREER_POINTS_LEDGER("cpl");
+    CAREER_POINTS_LEDGER("cpl"),
+    EXAM_COURSE("exc");
 
     private final String prefix;
 
