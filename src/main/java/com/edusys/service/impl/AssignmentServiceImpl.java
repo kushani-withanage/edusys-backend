@@ -30,7 +30,16 @@ public class AssignmentServiceImpl implements AssignmentService {
         if (assignmentDTO.getAssignmentId() == null || assignmentDTO.getAssignmentId().trim().isEmpty()) {
             assignmentDTO.setAssignmentId(idGenerator.generateId(EntityPrefix.ASSIGNMENT, assignmentRepository.count()));
         }
-        AssignmentEntity entity = mapper.map(assignmentDTO, AssignmentEntity.class);
+        
+        java.util.Optional<AssignmentEntity> existing = assignmentRepository.findById(assignmentDTO.getAssignmentId());
+        AssignmentEntity entity;
+        if (existing.isPresent()) {
+            entity = existing.get();
+            mapper.map(assignmentDTO, entity);
+        } else {
+            entity = mapper.map(assignmentDTO, AssignmentEntity.class);
+        }
+        
         AssignmentEntity saved = assignmentRepository.save(entity);
         return mapper.map(saved, AssignmentDTO.class);
     }

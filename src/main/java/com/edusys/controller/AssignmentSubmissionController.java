@@ -94,4 +94,9 @@ public class AssignmentSubmissionController {
     public ResponseEntity<List<AssignmentSubmissionDTO>> getByAssignment(@PathVariable String assignmentId) {
         return ResponseEntity.ok(assignmentSubmissionService.getByAssignment(assignmentId));
     }
+
+    @GetMapping("/student/{studentId}")
+    public ResponseEntity<List<AssignmentSubmissionDTO>> getByStudent(@PathVariable String studentId) {
+        return ResponseEntity.ok(assignmentSubmissionService.getByStudent(studentId));
+    }
 }

@@ -10,4 +10,5 @@ public interface ExamAttemptService {
     List<ExamAttemptDTO> getAll();
     ExamAttemptDTO update(String id, ExamAttemptDTO examAttemptDTO);
     boolean delete(String id);
+    List<ExamAttemptDTO> getByStudent(String studentId);
 }

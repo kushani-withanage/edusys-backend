@@ -56,6 +56,19 @@ public class AssignmentController {
         if (dto != null) {
             return ResponseEntity.ok(dto);
         }
+        if (id != null && id.startsWith("item-")) {
+            AssignmentDTO defaultDto = AssignmentDTO.builder()
+                    .assignmentId(id)
+                    .title("New Assignment")
+                    .description("No description provided.")
+                    .submissionTypeFile(true)
+                    .submissionTypeOnlineText(false)
+                    .maxSize("50MB")
+                    .maxFiles(1)
+                    .additionalFileUrl("[]")
+                    .build();
+            return ResponseEntity.ok(defaultDto);
+        }
         return ResponseEntity.notFound().build();
     }
 

@@ -131,6 +131,7 @@ public class ExamServiceImpl implements ExamService {
         existing.setShuffleQuestions(dto.getShuffleQuestions() != null ? dto.getShuffleQuestions() : false);
         existing.setShuffleOptions(dto.getShuffleOptions() != null ? dto.getShuffleOptions() : false);
         existing.setAttemptsAllowed(dto.getAttemptsAllowed() != null ? dto.getAttemptsAllowed() : 1);
+        existing.setPassMarks(dto.getPassMarks() != null ? dto.getPassMarks() : 40);
 
         // Update questions
         examQuestionRepository.deleteAll(existing.getExamQuestions());
@@ -275,11 +276,12 @@ public class ExamServiceImpl implements ExamService {
 
         List<Map<String, Object>> studentAttemptsList = new ArrayList<>();
 
+        int passMarks = exam.getPassMarks() != null ? exam.getPassMarks() : 40;
         for (ExamAttemptEntity attempt : attempts) {
             double finalScore = attempt.getScore() != null ? attempt.getScore() : 0.0;
             avgScore += finalScore;
 
-            if (finalScore >= 50.0) {
+            if (finalScore >= passMarks) {
                 passedCount++;
             }
 
@@ -310,6 +312,7 @@ public class ExamServiceImpl implements ExamService {
         analytics.put("averageScore", avgScore);
         analytics.put("passRate", passRate);
         analytics.put("maxMarks", maxExamMarks);
+        analytics.put("passMarks", passMarks);
         analytics.put("ranges", ranges);
         analytics.put("attempts", studentAttemptsList);
 

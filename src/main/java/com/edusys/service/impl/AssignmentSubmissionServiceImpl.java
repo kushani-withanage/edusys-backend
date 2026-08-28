@@ -86,4 +86,12 @@ public class AssignmentSubmissionServiceImpl implements AssignmentSubmissionServ
                 .forEach(entity -> list.add(mapper.map(entity, AssignmentSubmissionDTO.class)));
         return list;
     }
+
+    @Override
+    public List<AssignmentSubmissionDTO> getByStudent(String studentId) {
+        List<AssignmentSubmissionDTO> list = new ArrayList<>();
+        assignmentSubmissionRepository.findByStudentId(studentId)
+                .forEach(entity -> list.add(mapper.map(entity, AssignmentSubmissionDTO.class)));
+        return list;
+    }
 }

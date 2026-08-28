@@ -12,4 +12,5 @@ public interface AssignmentSubmissionService {
     boolean delete(String id);
     AssignmentSubmissionDTO getByAssignmentAndStudent(String assignmentId, String studentId);
     List<AssignmentSubmissionDTO> getByAssignment(String assignmentId);
+    List<AssignmentSubmissionDTO> getByStudent(String studentId);
 }

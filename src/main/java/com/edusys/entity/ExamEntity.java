@@ -57,6 +57,9 @@ public class ExamEntity {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "pass_marks")
+    private Integer passMarks;
+
     @OneToMany(mappedBy = "exam", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     @OrderBy("orderIndex ASC")
     private List<ExamQuestionEntity> examQuestions;

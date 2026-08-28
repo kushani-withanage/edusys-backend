@@ -1,0 +1,1 @@
+ALTER TABLE exams ADD COLUMN pass_marks INT DEFAULT 40;

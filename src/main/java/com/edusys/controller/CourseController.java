@@ -64,6 +64,7 @@ public class CourseController {
                             .findFirst();
                     if (matched.isPresent()) {
                         dto.setStatus(matched.get().getStatus());
+                        dto.setBatchCode(matched.get().getBatchCode());
                     } else {
                         dto.setStatus("ongoing");
                     }

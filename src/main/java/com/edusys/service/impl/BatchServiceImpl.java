@@ -189,13 +189,22 @@ public class BatchServiceImpl implements BatchService {
             batch.getCourses().forEach(c -> courseIds.add(c.getCourseId()));
         }
 
-        // 2. Query from course_access_grants table using batch_name (batch_code in grants)
+        // 2. Query from course_access_grants table using batch_name or batch_id (batch_code in grants)
         List<String> grantIds = jdbcTemplate.queryForList(
-                "SELECT DISTINCT course_id FROM course_access_grants WHERE LOWER(batch_code) = LOWER(?)",
+                "SELECT DISTINCT course_id FROM course_access_grants WHERE LOWER(batch_code) = LOWER(?) OR LOWER(batch_code) = LOWER(?)",
                 String.class,
-                batch.getBatchName()
+                batch.getBatchName(),
+                batch.getBatchId()
         );
         courseIds.addAll(grantIds);
+
+        // 3. Query from enrollments table
+        List<String> enrollmentCourseIds = jdbcTemplate.queryForList(
+                "SELECT DISTINCT course_id FROM enrollments WHERE batch_id = ?",
+                String.class,
+                batchId
+        );
+        courseIds.addAll(enrollmentCourseIds);
 
         if (courseIds.isEmpty()) {
             return new ArrayList<>();
@@ -211,8 +220,11 @@ public class BatchServiceImpl implements BatchService {
     @Override
     public List<com.edusys.model.dto.UserDTO> getStudentsInBatch(String batchId) {
         List<String> studentIds = jdbcTemplate.queryForList(
+                "SELECT DISTINCT student_id FROM students WHERE current_batch_id = ? " +
+                "UNION " +
                 "SELECT DISTINCT student_id FROM enrollments WHERE batch_id = ?",
                 String.class,
+                batchId,
                 batchId
         );
         

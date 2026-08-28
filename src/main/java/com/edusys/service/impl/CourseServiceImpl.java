@@ -171,20 +171,19 @@ public class CourseServiceImpl implements CourseService {
                             batch.getCourses().forEach(course -> {
                                 accessibleCourseIds.add(course.getCourseId());
                                 statusMap.put(course.getCourseId().toLowerCase(), "ongoing");
-                                batchCodeMap.put(course.getCourseId().toLowerCase(), batch.getBatchName());
+                                batchCodeMap.put(course.getCourseId().toLowerCase(), batch.getBatchId());
                             });
                         }
                     });
                 }
             });
-        } else {
+
             enrollmentRepository.findByStudentId(userId).forEach(e -> {
                 accessibleCourseIds.add(e.getCourseId());
                 statusMap.put(e.getCourseId().toLowerCase(), e.getStatus() != null ? e.getStatus() : "ongoing");
                 Optional<com.edusys.entity.BatchEntity> batchOpt = batchRepository.findById(e.getBatchId());
                 if (batchOpt.isPresent()) {
-                    com.edusys.entity.BatchEntity batch = batchOpt.get();
-                    batchCodeMap.put(e.getCourseId().toLowerCase(), batch.getBatchName());
+                    batchCodeMap.put(e.getCourseId().toLowerCase(), batchOpt.get().getBatchId());
                 }
             });
         }
@@ -203,10 +202,46 @@ public class CourseServiceImpl implements CourseService {
         // 3. Fetch courses
         List<CourseDTO> list = new ArrayList<>();
         if (!accessibleCourseIds.isEmpty()) {
+            // Build standard batch course map
+            Map<String, List<String>> courseBatchMap = new HashMap<>();
+            try {
+                batchRepository.findAll().forEach(batch -> {
+                    if (batch.getCourses() != null) {
+                        batch.getCourses().forEach(course -> {
+                            courseBatchMap.computeIfAbsent(course.getCourseId().toLowerCase(), k -> new ArrayList<>())
+                                          .add(batch.getBatchName());
+                        });
+                    }
+                });
+            } catch (Exception e) {}
+
             courseRepository.findAllById(accessibleCourseIds).forEach(entity -> {
                 CourseDTO dto = mapper.map(entity, CourseDTO.class);
                 dto.setStatus(statusMap.getOrDefault(entity.getCourseId().toLowerCase(), "ongoing"));
-                dto.setBatchCode(batchCodeMap.get(entity.getCourseId().toLowerCase()));
+                
+                // Determine batch code from the course module itself
+                String batchCodeVal = entity.getBatchCode();
+                if (batchCodeVal == null || batchCodeVal.trim().isEmpty()) {
+                    List<String> stdBatches = courseBatchMap.get(entity.getCourseId().toLowerCase());
+                    if (stdBatches != null && !stdBatches.isEmpty()) {
+                        batchCodeVal = String.join(", ", stdBatches);
+                    }
+                }
+                
+                // Fallback to enrollment/grant batch if course itself is not mapped to any batch
+                if (batchCodeVal == null || batchCodeVal.trim().isEmpty()) {
+                    String rawBatchCode = batchCodeMap.get(entity.getCourseId().toLowerCase());
+                    if (rawBatchCode != null) {
+                        Optional<com.edusys.entity.BatchEntity> batchOpt = batchRepository.findById(rawBatchCode);
+                        if (batchOpt.isPresent()) {
+                            batchCodeVal = batchOpt.get().getBatchName();
+                        } else {
+                            batchCodeVal = rawBatchCode;
+                        }
+                    }
+                }
+                
+                dto.setBatchCode(batchCodeVal);
                 dto.setInstructor(instructorMap.getOrDefault(entity.getCourseId().toLowerCase(), "Academic Faculty"));
                 list.add(dto);
             });

@@ -68,4 +68,12 @@ public class ExamAttemptServiceImpl implements ExamAttemptService {
         }
         return false;
     }
+
+    @Override
+    public List<ExamAttemptDTO> getByStudent(String studentId) {
+        List<ExamAttemptDTO> list = new ArrayList<>();
+        examAttemptRepository.findByStudentId(studentId)
+                .forEach(entity -> list.add(mapper.map(entity, ExamAttemptDTO.class)));
+        return list;
+    }
 }

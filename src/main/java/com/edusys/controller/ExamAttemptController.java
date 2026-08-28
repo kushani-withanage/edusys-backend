@@ -54,4 +54,9 @@ public class ExamAttemptController {
         }
         return ResponseEntity.notFound().build();
     }
+
+    @GetMapping("/student/{studentId}")
+    public ResponseEntity<List<ExamAttemptDTO>> getByStudent(@PathVariable String studentId) {
+        return ResponseEntity.ok(examAttemptService.getByStudent(studentId));
+    }
 }

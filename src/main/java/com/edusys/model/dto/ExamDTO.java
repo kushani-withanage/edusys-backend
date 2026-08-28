@@ -26,6 +26,7 @@ public class ExamDTO {
     private Integer attemptsAllowed;
     private String status; // DRAFT, PUBLISHED, CLOSED
     private LocalDateTime createdAt;
+    private Integer passMarks;
     
     // Auxiliary fields for payload
     private List<String> questionIds;
